@@ -16,3 +16,4 @@ Next action: task complete, review report resolved
 ## Decisions
 - Kept `stripe_client` calls synchronous because downstream database records require intent IDs.
 - Decoupled audit logs and telemetry metrics as fire-and-forget event candidates.
+

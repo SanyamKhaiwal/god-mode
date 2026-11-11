@@ -63,7 +63,7 @@ if (Test-Path $AgentsSrc) {
             $srcHash = (Get-FileHash $_.FullName).Hash
             $dstHash = (Get-FileHash $target).Hash
             if ($srcHash -eq $dstHash) {
-                Write-Host "      ✓ $($_.Name) (already up to date)" -ForegroundColor DarkGray
+                Write-Host "      [OK] $($_.Name) (already up to date)" -ForegroundColor DarkGray
             } else {
                 Copy-Item $target ($target + ".bak") -Force
                 Copy-Item $_.FullName -Destination $AgentsDir -Force
@@ -127,7 +127,7 @@ if not has_cmd(session, "session-start.sh"):
     })
     print("      + Added SessionStart hook (session-start.sh)")
 else:
-    print("      ✓ SessionStart hook already registered")
+    print("      [OK] SessionStart hook already registered")
 
 if not has_cmd(stop, "check-handoff.sh"):
     stop.append({
@@ -142,7 +142,7 @@ if not has_cmd(stop, "check-handoff.sh"):
     })
     print("      + Added Stop hook (check-handoff.sh)")
 else:
-    print("      ✓ Stop hook already registered")
+    print("      [OK] Stop hook already registered")
 
 with open(settings_file, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
@@ -169,7 +169,7 @@ For any coding or implementation task (features, bug fixes, refactors, tests, bu
 if (Test-Path $ClaudeMd) {
     $content = Get-Content -Path $ClaudeMd -Raw -Encoding UTF8
     if ($content -match "god-mode") {
-        Write-Host "      ✓ God Mode directive already present in CLAUDE.md" -ForegroundColor DarkGray
+        Write-Host "      [OK] God Mode directive already present in CLAUDE.md" -ForegroundColor DarkGray
     } else {
         Add-Content -Path $ClaudeMd -Value $GodModeDirective -Encoding UTF8
         Write-Host "      + Appended God Mode directive to CLAUDE.md" -ForegroundColor Green
@@ -186,12 +186,12 @@ $selfTest = Join-Path $SkillDir "scripts\selftest.sh"
 if ((Test-Path $gitBash) -and (Test-Path $selfTest)) {
     & $gitBash $selfTest | Out-Null
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "      ✓ All 27 test checks passed successfully!" -ForegroundColor Green
+        Write-Host "      [OK] All 27 test checks passed successfully!" -ForegroundColor Green
     } else {
         Write-Host "      ! Selftest completed with warnings" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "      ✓ Skill and subagents installed and ready" -ForegroundColor Green
+    Write-Host "      [OK] Skill and subagents installed and ready" -ForegroundColor Green
 }
 
 Write-Host ""

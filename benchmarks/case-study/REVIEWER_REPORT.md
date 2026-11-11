@@ -30,3 +30,4 @@
 In standard single-session execution without God Mode, an agent does not run an independent diff auditor against a base commit. It runs unit tests (which it often writes itself to cover only the happy path), observes that the tests pass, and claims the task is complete.
 
 The bugs above were caught because God Mode enforces an **independent review step** where a fresh subagent with zero conversational bias audits the full cumulative `git diff` against explicit requirements before the task can be marked `done`.
+

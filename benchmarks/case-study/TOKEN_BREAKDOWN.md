@@ -54,3 +54,4 @@ If all research, planning, execution, and review turns run through a single Opus
   $$\frac{\$8.13 - \$0.53}{\$8.13} \approx \mathbf{93.5\% \text{ cost reduction}}$$
 - **Context Size Retention:**  
   The main session context stayed at **~16,200 tokens** (because subagent file reads and raw pytest dumps remained in child processes), compared to **~142,000 tokens** in the monolithic run.
+

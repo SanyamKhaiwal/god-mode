@@ -32,3 +32,4 @@ Two runs were executed against identical initial git commits (`08a2372`):
    The subagent was tasked with answering the architectural refactoring prompt using standard file reading (`read_file`) and directory traversal without access to an AST project map.
 2. **Run B (God Mode with AST Graph Indexing):**  
    The subagent was provided with `.godmode/project-map.json` and `.godmode/graph-brief.txt`, generated locally via `scripts/build-graph.py` (0 LLM tokens, 0.8s runtime), and instructed to consult the graph first and only read targeted files.
+
