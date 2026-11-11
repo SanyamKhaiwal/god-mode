@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     God Mode installer for Claude Code on Windows (PowerShell)
     Safe, non-destructive: merges into settings.json and CLAUDE.md without overwriting existing configs.
@@ -58,8 +58,21 @@ Write-Host "[2/5] Installing 5 subagents to $AgentsDir..." -ForegroundColor Yell
 $AgentsSrc = Join-Path $SkillDir "agents"
 if (Test-Path $AgentsSrc) {
     Get-ChildItem -Path $AgentsSrc -Filter "*.md" | ForEach-Object {
-        Copy-Item $_.FullName -Destination $AgentsDir -Force
-        Write-Host "      - $($_.Name)" -ForegroundColor DarkGray
+        $target = Join-Path $AgentsDir $_.Name
+        if (Test-Path $target) {
+            $srcHash = (Get-FileHash $_.FullName).Hash
+            $dstHash = (Get-FileHash $target).Hash
+            if ($srcHash -eq $dstHash) {
+                Write-Host "      ✓ $($_.Name) (already up to date)" -ForegroundColor DarkGray
+            } else {
+                Copy-Item $target ($target + ".bak") -Force
+                Copy-Item $_.FullName -Destination $AgentsDir -Force
+                Write-Host "      ! Existing $($_.Name) detected: backed up to $($_.Name).bak and updated" -ForegroundColor Yellow
+            }
+        } else {
+            Copy-Item $_.FullName -Destination $AgentsDir -Force
+            Write-Host "      + Installed $($_.Name)" -ForegroundColor Green
+        }
     }
 } else {
     Write-Warning "agents directory not found in $SkillDir"
@@ -83,10 +96,9 @@ if os.path.isfile(settings_file):
             if content:
                 data = json.loads(content)
     except Exception as e:
-        print(f"Notice: Could not parse existing settings.json ({e}). Creating backup...")
-        with open(settings_file + ".bak", "w", encoding="utf-8") as bf:
-            bf.write(content)
-        data = {}
+        print(f"Error: Could not parse existing settings.json ({e}).")
+        print("Please resolve JSON syntax errors in ~/.claude/settings.json before running installer to prevent settings loss.")
+        sys.exit(1)
 
 hooks = data.setdefault("hooks", {})
 session = hooks.setdefault("SessionStart", [])
@@ -174,7 +186,7 @@ $selfTest = Join-Path $SkillDir "scripts\selftest.sh"
 if ((Test-Path $gitBash) -and (Test-Path $selfTest)) {
     & $gitBash $selfTest | Out-Null
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "      ✓ All 22 tests passed successfully!" -ForegroundColor Green
+        Write-Host "      ✓ All 27 test checks passed successfully!" -ForegroundColor Green
     } else {
         Write-Host "      ! Selftest completed with warnings" -ForegroundColor Yellow
     }

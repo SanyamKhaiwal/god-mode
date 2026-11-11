@@ -61,12 +61,23 @@ chmod +x "$SKILL_DIR/scripts/"*.sh 2>/dev/null || true
 echo "[2/5] Installing 5 subagents to $AGENTS_DIR..."
 AGENTS_SRC="$SKILL_DIR/agents"
 if [ -d "$AGENTS_SRC" ]; then
-  cp "$AGENTS_SRC"/*.md "$AGENTS_DIR/"
-  echo "      - executor-light.md"
-  echo "      - executor.md"
-  echo "      - researcher.md"
-  echo "      - researcher-deep.md"
-  echo "      - reviewer.md"
+  for agent_file in "$AGENTS_SRC"/*.md; do
+    agent_name="$(basename "$agent_file")"
+    target_agent="$AGENTS_DIR/$agent_name"
+    if [ -f "$target_agent" ]; then
+      if cmp -s "$agent_file" "$target_agent"; then
+        echo "      ✓ $agent_name (already up to date)"
+      else
+        echo "      ! Existing $agent_name detected: backing up to $agent_name.bak"
+        cp "$target_agent" "$target_agent.bak"
+        cp "$agent_file" "$target_agent"
+        echo "      + Updated $agent_name"
+      fi
+    else
+      cp "$agent_file" "$target_agent"
+      echo "      + Installed $agent_name"
+    fi
+  done
 else
   echo "WARNING: agents directory not found in $SKILL_DIR"
 fi
@@ -75,8 +86,8 @@ fi
 echo "[3/5] Configuring lifecycle hooks in $SETTINGS_FILE..."
 
 PYTHON_BIN=""
-for p in "python3" "python" "py" "python.exe" "/c/Python314/python.exe" "$LOCALAPPDATA/Programs/Python/Python*/python.exe"; do
-  if "$p" -c "import sys" >/dev/null 2>&1; then
+for p in "python3" "python" "py"; do
+  if command -v "$p" >/dev/null 2>&1 && "$p" -c "import sys" >/dev/null 2>&1; then
     PYTHON_BIN="$p"
     break
   fi
@@ -99,10 +110,9 @@ if os.path.isfile(settings_file):
             if content:
                 data = json.loads(content)
     except Exception as e:
-        print(f"Notice: Could not parse existing settings.json ({e}). Creating backup...")
-        with open(settings_file + ".bak", "w", encoding="utf-8") as bf:
-            bf.write(content)
-        data = {}
+        print(f"Error: Could not parse existing settings.json ({e}).")
+        print("Please resolve JSON syntax errors in ~/.claude/settings.json before running installer to prevent settings loss.")
+        sys.exit(1)
 
 hooks = data.setdefault("hooks", {})
 session_start = hooks.setdefault("SessionStart", [])
@@ -178,7 +188,7 @@ fi
 echo "[5/5] Running self-test suite..."
 if [ -f "$SKILL_DIR/scripts/selftest.sh" ]; then
   if bash "$SKILL_DIR/scripts/selftest.sh" > /dev/null 2>&1; then
-    echo "      ✓ All 22 tests passed successfully!"
+    echo "      ✓ All 27 test checks passed successfully!"
   else
     echo "      ! Selftest completed with warnings (check environment bash configuration)"
   fi

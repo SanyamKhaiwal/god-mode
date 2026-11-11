@@ -16,6 +16,6 @@ jobs:
       - name: Make scripts executable
         run: chmod +x scripts/*.sh
 
-      - name: Execute God Mode 22-case unit test suite
+      - name: Execute God Mode 27-check unit test suite
         run: bash scripts/selftest.sh
 

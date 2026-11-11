@@ -1,6 +1,6 @@
 # God Mode
 
-**An autonomous execution skill for Claude Code: plans with the strongest model (Opus), delegates execution to cheap subagents (Haiku/Sonnet), verifies every step with real commands, and never loses state across `/clear` or context compactions.**
+**An orchestration harness for Claude Code: plans with Opus, delegates execution to specialized subagents (Haiku/Sonnet) by complexity tier, verifies every step with real commands, and persists task state on disk across `/clear` and context compactions.**
 
 [![CI](https://github.com/SanyamKhaiwal/god-mode/actions/workflows/ci.yml/badge.svg)](https://github.com/SanyamKhaiwal/god-mode/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -10,18 +10,18 @@
 
 ---
 
-## Real Project Results: Production Codebase Benchmark
+## Case Study: Multi-File Architectural Refactoring (Single Run)
 
-Measured on an actual enterprise platform (**31 files, ~12,500 lines of code** across API routers, core database, security HMAC, audit services, telemetry, and test suites) implementing a cross-cutting feature: **Idempotent Payment Processing with Webhook Replay Protection & Audit Logging**.
+Measured on a 41-file synthetic enterprise platform (~1,100 lines of Python code across API routers, core database, security HMAC, audit services, telemetry, and test suites) constructed specifically to evaluate cross-module coupling without proprietary leaks. Full task prompts, token breakdowns, and raw reviewer logs are recorded in [benchmarks/case-study/](benchmarks/case-study/).
 
-| Metric | Plain Claude Code (Opus Monolith) | With God Mode (Multi-Tier) | Impact |
+| Metric | Plain Claude Code (Single-Session Opus) | With God Mode (Multi-Tier) | Impact |
 |---|---|---|---|
-| **Cost per Task** | ~$7.35 – $9.20 *(100% Opus across all turns)* | **~$0.68 – $0.95** *(Opus plan + Haiku T1 + Sonnet T2)* | **89.6% Cost Savings** |
-| **Main Session Context Size** | 142,000 tokens *(bloated, near compaction)* | **16,200 tokens** *(crisp, sub-second responses)* | **88.6% Context Reduction** |
+| **Cost per Task** | ~$8.13 *(100% Opus across all turns)* | **~$0.53** *(Opus plan + Haiku T1 + Sonnet T2)* | **93.5% Cost Reduction** |
+| **Main Session Context Size** | 142,000 tokens *(bloated, near compaction)* | **16,200 tokens** *(compact & responsive)* | **88.6% Context Reduction** |
 | **Mechanical Boilerplate (T1)** | 48,000 Opus tokens ($0.72) | 36,000 Haiku tokens ($0.03) | **95.8% cheaper on scaffolding** |
-| **Bugs Caught Before Merge** | 0 *(LLM assumed "all 8 tests pass = done")* | **5 critical bugs caught by `reviewer`** | Idempotency replay vulnerability, corrupt import-time timestamps, unwired webhooks caught |
+| **Bugs Caught Before Merge** | *Not evaluated* *(plain run lacked independent review; tests passed so model marked done)* | **5 bugs caught by `reviewer`** | Idempotency replay vulnerability, corrupt import-time timestamps, unwired webhooks caught |
 | **Compaction / `/clear` State Retention** | Lossy conversational summary *(loses line numbers & dead ends)* | **100% Structured Disk Ledger** *(Resumed exact step & skipped dead ends)* | Lossless continuity across resets |
-| **Turn Exit Without Docs** | Allowed *(status lost)* | **Blocked by Stop Hook** | Enforced handoff ledger |
+| **Turn Exit Without Docs** | Allowed *(status lost)* | **Enforced by Stop Hook** | Enforced handoff ledger |
 
 ---
 
@@ -29,21 +29,21 @@ Measured on an actual enterprise platform (**31 files, ~12,500 lines of code** a
 
 | Scenario | Plain Claude Code | With God Mode |
 |---|---|---|
-| **Cross-cutting feature with unwired APIs** | LLM implements payment logic, runs unit tests, and claims `OK, done`. It completely misses that webhooks are unwired, audit logs evaluate timestamps once at module import time, and replayed payments don't validate matching amounts. | **`reviewer`** subagent diffs against the base branch and **catches 5 critical bugs** (including security bypasses and dead code) before merging. |
-| **Noisy 1,500-line pytest dump in a 30-file repo** | Dumps 1,500 lines of tracebacks directly into chat context, instantly consuming 15k tokens and triggering conversational lag. | **`filter-output.sh`** trims output to just the failing tail and exit code; logs full traces to `.godmode/test-log.md`. |
+| **Cross-cutting feature with unwired APIs** | LLM implements payment logic, runs unit tests, and claims `OK, done`. It misses that webhooks are unwired, audit logs evaluate timestamps once at module import time, and replayed payments don't validate matching amounts. | **`reviewer`** subagent diffs against the base branch and **catches 5 bugs** (including security bypasses and dead code) before merging. |
+| **Noisy 1,500-line pytest dump in a 40-file repo** | Dumps 1,500 lines of tracebacks directly into chat context, consuming 15k tokens and triggering conversational lag. | **`filter-output.sh`** trims output to just the failing tail and exit code; logs full traces to `.godmode/test-log.md`. |
 | **Long sessions & repeated compactions** | Compaction creates lossy conversational summaries. Details blur, exact outputs vanish, and Claude **re-tries broken approaches that previously failed**. | **`session-start.sh` hook** automatically reloads `.godmode/PLAN.md` and `HANDOFF.md`. Resumes the exact step and **actively avoids all recorded dead ends**. |
-| **Exiting a turn without documentation** | Agent finishes turn and stops. Next session has zero record of what was modified or what to do next. | **`check-handoff.sh` Stop hook** physically blocks the agent from exiting the turn until `.godmode/HANDOFF.md` is updated. |
+| **Exiting a turn without documentation** | Agent finishes turn and stops. Next session has zero record of what was modified or what to do next. | **`check-handoff.sh` Stop hook** requires the agent to update `.godmode/HANDOFF.md` before concluding the turn. |
 
 ---
 
-## How God Mode Compares to Other Approaches
+## Architectural Paradigms Compared
 
 | Paradigm | How It Operates | Why God Mode Is Different |
 |---|---|---|
-| **Prompt Compression Tools** | Compresses syntax and prompts into shorthand to save ~10–15% tokens. | **Model-Tier Arbitrage:** God Mode doesn't truncate language; it routes mechanical steps to Haiku (18.7x cheaper), cutting costs by **~82%** without degrading reasoning. |
-| **Static Code Indexers** | Builds an AST knowledge graph to help Claude *find* symbols. | **Full Execution Lifecycle:** Code indexers only search code; they cannot execute tasks, trim noisy test logs, enforce Stop hooks, or audit diffs. |
-| **Monolithic Multi-Agent Bundles** | Installs 12+ external MCP servers, background daemons, and heavy toolchains. | **Zero Dependencies:** Pure shell harnesses and 5 focused subagents. Installs in 5 seconds with no external daemons to maintain. |
-| **Standard Claude Code** | Operates as a single conversation thread that degrades over long tasks. | **Multi-Agent OS:** Plans with Opus, delegates execution across isolated subagent tiers, and deterministically persists state across session resets. |
+| **Prompt Compression Tools** | Compresses syntax and prompts into shorthand to save ~10–15% tokens. | **Model-Tier Arbitrage:** God Mode doesn't truncate language; it routes mechanical steps to Haiku (18.7x cheaper), cutting costs by **~93%** on multi-file tasks without degrading reasoning. |
+| **Static Code Indexers** | Builds an AST knowledge graph to help Claude *find* symbols. | **Full Execution Lifecycle:** Code indexers only search code; God Mode pairs a built-in AST indexer with execution subagents, test log filtering, Stop hooks, and diff auditing. |
+| **Heavyweight Multi-Agent Frameworks** | Installs background Docker containers, external vector databases, and heavy toolchains. | **Zero Dependencies:** Pure shell harnesses, Python standard library, and 5 focused subagents. Installs in seconds with no external daemons. |
+| **Standard Claude Code** | Operates as a single conversation thread that degrades over long tasks. | **Orchestration Harness:** Plans with Opus, delegates execution across isolated subagent tiers, and deterministically persists state across session resets. |
 
 ---
 
@@ -54,10 +54,10 @@ For large repositories and complex refactoring tasks, God Mode includes a built-
 - **Languages Supported:** Python (`.py`), Java (`.java`), and C/C++ (`.h`, `.hpp`, `.cpp`, `.cc`).
 - **Sub-Second Build & Incremental Cache:** Indexes a 40+ file project in < 1 second; file-hash caching re-indexes modified files in **~20ms**.
 - **Hub Centrality Analysis:** Identifies high-fan-in "Hub Nodes" (files with the most incoming dependents) to predict blast radius before modifying code.
-- **Atomic File Swapping:** Uses kernel-level `os.replace` to prevent race conditions during concurrent agent access.
+- **Atomic File Swapping:** Uses `os.replace` to prevent race conditions during concurrent agent access.
 - **Fail-Safe Fallback:** If a file contains non-standard syntax or dynamic macros, the indexer skips it gracefully without breaking the graph, and subagents automatically fall back to native `ripgrep`.
 
-**Benchmark Impact on Architectural Refactoring:**
+**Case Study Measured Impact (from [benchmarks/case-study/](benchmarks/case-study/)):**
 - File reads during research dropped from **113 calls to 8 calls** (**92.9% reduction in I/O**).
 - Subagent trajectory exploration steps dropped from **230 steps to 20 steps** (**91.3% reduction**).
 
@@ -177,7 +177,7 @@ If you ever want to force a specific mode, just include a single keyword in your
 | **`executor`** | T2 Logic | Sonnet | ️ Yes | Programming with clear specs, edge cases, bug fixes with known cause. 1 retry on fail. |
 | **`reviewer`** | Quality Gate | Sonnet | ❌ Read-only | Diffs against base commit. Prioritizes correctness, broken integrations, and regressions. |
 
-> **Note on Compatibility:** Built natively for Claude Code. The core orchestration workflow and subagent specifications have also been verified compatible with Google Antigravity and multi-agent developer harnesses (Codex and Antigravity automated installers coming in v1.1).
+> **Note on Compatibility:** Built natively for Claude Code. The orchestration principles and subagent contracts can also be adapted to other multi-agent developer harnesses.
 
 ---
 
