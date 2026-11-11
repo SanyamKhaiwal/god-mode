@@ -34,6 +34,8 @@ If the task turns out bigger than it looked (more files, a failing test you don'
 ## 3. Full route
 
 ### 3a. Research
+On multi-file codebases, ensure `.godmode/project-map.json` is fresh via `scripts/build-graph.py` so researchers query the pre-indexed dependency graph first instead of blind crawling.
+
 Delegate reading by the kind of question (see "Research routing" in `references/triage.md`):
 - Lookups go to `researcher` (Haiku).
 - Questions about how code behaves go to `researcher-deep` (Sonnet).

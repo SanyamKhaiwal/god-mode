@@ -110,5 +110,19 @@ out=$(CLAUDE_PROJECT_DIR="$A" bash "$S/godmode-run.sh" s4 bash -c 'echo "0 faile
 has "$(cat "$A/.godmode/test-log.md")" "— All tests passed (9 assertions in 4 test cases)" && r=1 || r=0
 check "D summary prefers the test-case count line" $r
 
+# ---- E: AST graph builder & summary ----
+d="$T/graph_test"; mkdir -p "$d/src" "$d/java" "$d/cpp"
+printf 'class PyModel:\n    def save(self):\n        pass\n' > "$d/src/model.py"
+printf 'package com.test;\npublic class JavaService extends BaseService {\n    public void run() {}\n}\n' > "$d/java/JavaService.java"
+printf '#include "model.h"\nclass CppGateway : public BaseGateway {\npublic:\n    void execute();\n};\n' > "$d/cpp/gateway.h"
+
+python "$S/build-graph.py" "$d" "$d/.godmode/project-map.json" --quiet; rc=$?
+[ $rc -eq 0 ] && [ -f "$d/.godmode/project-map.json" ] && r=1 || r=0
+check "E build-graph creates project-map.json" $r
+
+out=$(python "$S/graph-summary.py" "$d/.godmode/project-map.json")
+has "$out" "Project Architecture Map" && has "$out" "PyModel" && r=1 || r=0
+check "E graph-summary outputs architecture brief" $r
+
 [ $fails -eq 0 ] || exit 1
 exit 0

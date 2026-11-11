@@ -44,7 +44,7 @@ Research feeds the plan, and the planner can't see what a researcher left out. R
 | Behaviour: how does X behave, why does symptom S happen, data flow across modules, numerics, timing, threading, state | `researcher-deep` (Sonnet) |
 | Behaviour of a project risk area, or whatever a T3 step will change | Main session reads it directly |
 
-Phrase questions neutrally ("how does the render time get chosen?"), never as a hypothesis to confirm. Before a plan relies on a researcher's "Load-bearing claim", open its `path:line` and check it; that costs seconds. Treat a non-empty "Not read" list as a gap: read those spots yourself or ask a follow-up question.
+Phrase questions neutrally ("how does the render time get chosen?"), never as a hypothesis to confirm. Researchers should query `.godmode/project-map.json` first to trace callers and dependencies, falling back to Grep for unmapped connections. Before a plan relies on a researcher's "Load-bearing claim", open its `path:line` and check it; that costs seconds. Treat a non-empty "Not read" list as a gap: read those spots yourself or ask a follow-up question.
 
 ## Tiers (per step, Light and Full routes)
 

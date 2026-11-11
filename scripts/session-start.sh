@@ -53,6 +53,15 @@ active_task() {
   fi
 }
 
+update_graph() {
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [ -f "$script_dir/build-graph.py" ]; then
+    python "$script_dir/build-graph.py" "$ROOT" "$DIR/project-map.json" --quiet 2>/dev/null || true
+  fi
+}
+
 project_state 2>/dev/null
 active_task 2>/dev/null
+update_graph 2>/dev/null
 exit 0

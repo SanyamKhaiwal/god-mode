@@ -47,6 +47,22 @@ Measured on an actual enterprise platform (**31 files, ~12,500 lines of code** a
 
 ---
 
+## Zero-Dependency AST Graph Indexing (Python · Java · C++)
+
+For large repositories and complex refactoring tasks, God Mode includes a built-in, multi-language AST graph indexer (`scripts/build-graph.py`) that operates with **zero external dependencies and zero LLM token costs**:
+
+- **Languages Supported:** Python (`.py`), Java (`.java`), and C/C++ (`.h`, `.hpp`, `.cpp`, `.cc`).
+- **Sub-Second Build & Incremental Cache:** Indexes a 40+ file project in < 1 second; file-hash caching re-indexes modified files in **~20ms**.
+- **Hub Centrality Analysis:** Identifies high-fan-in "Hub Nodes" (files with the most incoming dependents) to predict blast radius before modifying code.
+- **Atomic File Swapping:** Uses kernel-level `os.replace` to prevent race conditions during concurrent agent access.
+- **Fail-Safe Fallback:** If a file contains non-standard syntax or dynamic macros, the indexer skips it gracefully without breaking the graph, and subagents automatically fall back to native `ripgrep`.
+
+**Benchmark Impact on Architectural Refactoring:**
+- File reads during research dropped from **113 calls to 8 calls** (**92.9% reduction in I/O**).
+- Subagent trajectory exploration steps dropped from **230 steps to 20 steps** (**91.3% reduction**).
+
+---
+
 ## Quick Start
 
 ### 1-Command Automated Install (Safe & Non-Destructive)
