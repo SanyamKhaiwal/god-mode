@@ -1,0 +1,16 @@
+# God Mode task artifacts
+.godmode/
+test-log.md
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python / Temp files
+__pycache__/
+*.py[cod]
+*$py.class
+*.bak
+*.tmp
+
