@@ -1,9 +1,11 @@
 # Token and Cost Breakdown (Single Run)
 
 Pricing rates used for calculation (standard Anthropic API list prices per 1,000,000 tokens):
-- **Claude 3 Opus (`claude-3-opus-20240229`):** Input: $15.00 / M | Output: $75.00 / M
-- **Claude 3.7 Sonnet (`claude-3-7-sonnet-20250219`):** Input: $3.00 / M | Output: $15.00 / M
-- **Claude 3.5 Haiku (`claude-3-5-haiku-20241022`):** Input: $0.80 / M | Output: $4.00 / M
+- **Claude 3 Opus (`claude-3-opus-20240229`):** Input: $15.00 / M (Cache write: $18.75 / M, Cache read: $1.50 / M) | Output: $75.00 / M
+- **Claude 3.7 Sonnet (`claude-3-7-sonnet-20250219`):** Input: $3.00 / M (Cache write: $3.75 / M, Cache read: $0.30 / M) | Output: $15.00 / M
+- **Claude 3.5 Haiku (`claude-3-5-haiku-20241022`):** Input: $0.80 / M (Cache write: $1.00 / M, Cache read: $0.08 / M) | Output: $4.00 / M
+
+> **Note on Prompt Caching & Crossover:** Anthropic discounts cached prompt tokens by 90%. In small tasks (1–5 files), prompt caching allows monolithic Opus to run very cheaply (~$0.23, as empirically measured in [benchmarks/small-task/](../small-task/)). However, on large tasks with 30+ files, repeated cache writes ($18.75/M) and context bloat (140k+ tokens per turn) accumulate rapidly. God Mode isolates file exploration into lightweight subagents and local AST indexing to keep the orchestrator context compact.
 
 ---
 

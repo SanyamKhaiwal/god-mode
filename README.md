@@ -10,17 +10,36 @@
 
 ---
 
-## Case Study: Multi-File Architectural Refactoring (Single Run)
+## Empirical Benchmarks & Boundaries
 
-Measured on a 41-file synthetic enterprise platform (~1,100 lines of Python code across API routers, core database, security HMAC, audit services, telemetry, and test suites) constructed specifically to evaluate cross-module coupling without proprietary leaks. Full task prompts, token breakdowns, and raw reviewer logs are recorded in [benchmarks/case-study/](benchmarks/case-study/).
+Every orchestration harness introduces coordination overhead. To determine where God Mode is valuable versus where plain Claude Code is optimal, both small-scale and multi-file scenarios were evaluated using Claude Code CLI with raw logs.
+
+### 1. Small Task Benchmark (5 Files, Headless `claude -p` on Opus 5.5)
+Measured on a 5-file Python shop package with 5 hidden unit tests. Raw JSON execution logs from Claude Code are recorded in [benchmarks/small-task/](benchmarks/small-task/).
+
+| Setup | Cost (USD) | Turns | Duration | Subagents | Hidden Tests |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Plain Opus (Warm Prompt Cache)** | **$0.23** | 3 | 37s | None | 5/5 Pass |
+| **God Mode (Auto Triage)** | $0.42 – $0.44 | 6–7 | 45s | None *(Triage selected Light; avoided subagents)* | 5/5 Pass |
+| **God Mode (Forced Full Pipeline)** | $0.55 – $0.57 | 8–9 | 74s | `reviewer` on Sonnet ($0.036) | 5/5 Pass *(Reviewer caught test flaw)* |
+
+> **Boundary Rule:** On 1–5 file edits, **plain Claude Code is faster and cheaper**. Anthropic's prompt caching makes small tasks run in ~3 turns for ~$0.23. Evaluating skill instructions and triage rules adds 3–4 extra Opus turns (~$0.19 in cached reads). Use Direct mode or plain Claude Code for small tasks.
+
+---
+
+### 2. Large Architectural Refactoring (41 Files, Cross-Service Decoupling)
+Measured on a 41-file enterprise platform with cross-module coupling and test suites. Detailed token breakdowns and logs are in [benchmarks/case-study/](benchmarks/case-study/).
 
 | Metric | Plain Claude Code (Single-Session Opus) | With God Mode (Multi-Tier) | Impact |
 |---|---|---|---|
-| **Cost per Task** | ~$8.13 *(100% Opus across all turns)* | **~$0.53** *(Opus plan + Haiku T1 + Sonnet T2)* | **93.5% Cost Reduction** |
+| **AST Graph Generation** | N/A *(Blind manual traversal)* | **0.8s on CPU ($0.00)** | Zero API token overhead |
+| **File Read Calls (`read_file`)** | 113 calls | **8 calls** | **92.9% reduction in I/O** |
+| **Exploration Steps (Turns)** | 230 steps | **20 steps** | **91.3% reduction** |
 | **Main Session Context Size** | 142,000 tokens *(bloated, near compaction)* | **16,200 tokens** *(compact & responsive)* | **88.6% Context Reduction** |
-| **Mechanical Boilerplate (T1)** | 48,000 Opus tokens ($0.72) | 36,000 Haiku tokens ($0.03) | **95.8% cheaper on scaffolding** |
-| **Bugs Caught Before Merge** | *Not evaluated* *(plain run lacked independent review; tests passed so model marked done)* | **5 bugs caught by `reviewer`** | Idempotency replay vulnerability, corrupt import-time timestamps, unwired webhooks caught |
-| **Compaction / `/clear` State Retention** | Lossy conversational summary *(loses line numbers & dead ends)* | **100% Structured Disk Ledger** *(Resumed exact step & skipped dead ends)* | Lossless continuity across resets |
+| **Cost (Uncached Token Volume Model)** | ~$8.13 *(All-Opus across all turns)* | **~$0.53** *(Opus plan + Haiku T1 + Sonnet T2)* | **93.5% Cost Reduction** |
+| **Estimated Cost (With Prompt Caching)** | ~$2.80 – $3.50 | **~$0.45 – $0.55** | **~75% – 85% Net Savings** |
+| **Bugs Caught Before Merge** | *Not evaluated* *(plain run lacked independent review)* | **5 bugs caught by `reviewer`** | Replay vulnerability, import-time timestamp bug caught |
+| **Compaction / `/clear` State Retention** | Lossy conversational summary | **100% Structured Disk Ledger** | Lossless continuity across resets |
 | **Turn Exit Without Docs** | Allowed *(status lost)* | **Enforced by Stop Hook** | Enforced handoff ledger |
 
 ---

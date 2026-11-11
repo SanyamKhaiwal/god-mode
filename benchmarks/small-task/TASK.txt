@@ -1,0 +1,6 @@
+Add coupon codes and GST split to the shop package. Requirements:
+1. models.py: Cart gets an optional field `coupon` (str or None, default None). Cart.add must raise ValueError if qty <= 0.
+2. discounts.py: add `coupon_discount(cart)`. Coupons: "SAVE10" = 10% off the subtotal of food and books lines only; "FLAT500" = 500 off if the cart subtotal is 2000 or more (else 0). None means 0. Any other code raises ValueError("unknown coupon"). Add `total_discount(cart)` = bulk_discount + coupon_discount, capped at the cart subtotal, rounded to 2 dp.
+3. invoice.py: use total_discount instead of bulk_discount. Tax stays proportional to the discounted amount, as now.
+4. tax.py / invoice.py: the seller is in "UP". If cart.customer_state == "UP" the tax is split equally into "cgst" and "sgst" (each round(tax/2, 2)) and "igst" is 0.0; otherwise "igst" = tax and cgst/sgst are 0.0. The invoice dict must contain keys subtotal, discount, cgst, sgst, igst, tax, total.
+5. Update tests/test_invoice.py so existing tests match the new invoice shape, and add tests for both coupons, the unknown-coupon error, qty validation and the inter-state case. All tests must pass with `python -m unittest`.
