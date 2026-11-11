@@ -57,3 +57,4 @@ Forcing the full subagent pipeline (`God Mode Full`) cost **~41% more** ($0.962 
 - `gm1.json`, `gm2.json`: Raw execution logs for God Mode Auto Triage.
 - `full1.json`, `full2.json`: Raw execution logs for God Mode Forced Full.
 - `RESULTS.md`: Original benchmark log table.
+
