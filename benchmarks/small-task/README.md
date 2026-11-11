@@ -59,3 +59,4 @@ All raw run artifacts, logs, and outputs from Claude Code CLI are preserved in t
 - `plain.json`, `plain2.json`, `plain3.json`: Raw Claude Code execution logs for Plain Opus.
 - `godmode.json`, `gm2.json`: Raw execution logs for God Mode Auto Triage.
 - `full1.json`, `full2.json`: Raw execution logs for God Mode Full Pipeline.
+

@@ -1,0 +1,6 @@
+Refactor this codebase to an Event Bus pattern. Services currently call each other directly (billing -> audit, subscription -> audit, webhook -> billing/subscription/audit). Requirements:
+1. Add src/core/events.py with a synchronous in-process EventBus: subscribe(event_name, handler), publish(event_name, payload: dict), and a module-level singleton `event_bus`.
+2. billing_service, subscription_service and webhook_service must no longer import or call audit_service. They publish events instead (e.g. "subscription.created", "payment.processed", "subscription.cancelled", "subscription.upgraded", "subscription.paused", "webhook.processed"); audit_service subscribes to those events and records exactly the same audit entries as before.
+3. webhook_service must no longer import billing_service or subscription_service; it publishes events that those services subscribe to, with the same end behaviour.
+4. Behaviour must not change: every existing test must still pass unmodified. Add tests/test_events.py covering subscribe/publish and that audit entries are still written via the bus.
+Run the full test suite (python -m pytest -q) before finishing.

@@ -27,20 +27,18 @@ Measured on a 5-file Python shop package with 5 hidden unit tests. Raw JSON exec
 
 ---
 
-### 2. Large Architectural Refactoring (41 Files, Cross-Service Decoupling)
-Measured on a 41-file enterprise platform with cross-module coupling and test suites. Detailed token breakdowns and logs are in [benchmarks/case-study/](benchmarks/case-study/).
+### 2. Multi-File Event Bus Refactoring (41 Files, Headless `claude -p` on Opus 5.5)
+Measured on a 41-file enterprise platform (~1,100 lines of Python code, 23 unit tests). Task: decouple direct cross-service calls by introducing an in-process Event Bus (`src/core/events.py`). Raw execution logs, prompt, and test checkers are recorded in [benchmarks/event-bus-41/](benchmarks/event-bus-41/).
 
-| Metric | Plain Claude Code (Single-Session Opus) | With God Mode (Multi-Tier) | Impact |
-|---|---|---|---|
-| **AST Graph Generation** | N/A *(Blind manual traversal)* | **0.8s on CPU ($0.00)** | Zero API token overhead |
-| **File Read Calls (`read_file`)** | 113 calls | **8 calls** | **92.9% reduction in I/O** |
-| **Exploration Steps (Turns)** | 230 steps | **20 steps** | **91.3% reduction** |
-| **Main Session Context Size** | 142,000 tokens *(bloated, near compaction)* | **16,200 tokens** *(compact & responsive)* | **88.6% Context Reduction** |
-| **Cost (Uncached Token Volume Model)** | ~$8.13 *(All-Opus across all turns)* | **~$0.53** *(Opus plan + Haiku T1 + Sonnet T2)* | **93.5% Cost Reduction** |
-| **Estimated Cost (With Prompt Caching)** | ~$2.80 – $3.50 | **~$0.45 – $0.55** | **~75% – 85% Net Savings** |
-| **Bugs Caught Before Merge** | *Not evaluated* *(plain run lacked independent review)* | **5 bugs caught by `reviewer`** | Replay vulnerability, import-time timestamp bug caught |
-| **Compaction / `/clear` State Retention** | Lossy conversational summary | **100% Structured Disk Ledger** | Lossless continuity across resets |
-| **Turn Exit Without Docs** | Allowed *(status lost)* | **Enforced by Stop Hook** | Enforced handoff ledger |
+| Setup | Average Cost (USD) | Average Tokens | Average Turns | Average Duration | Correctness (Tests & Code Checks) |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Plain Opus (Baseline)** | $0.682 | 600,387 | 19 turns *(15–23)* | 126s *(115–137s)* | 100% (23/23 tests pass) |
+| **God Mode (Auto Triage)** | **$0.609** | **479,252** | **8 turns** *(7–9)* | **80s** *(79–80s)* | 100% (23/23 tests pass) |
+| **God Mode (Forced Full Pipeline)** | $0.962 | 1,168,253 | 25.5 turns *(21–30)* | 167s *(150–183s)* | 100% (23/23 tests pass) |
+
+> **What the Measured Data Proves:**
+> - **Speed & Turn Efficiency:** God Mode in Auto Triage mode finished the refactor in **half the turns** (7–9 turns vs 15–23) and was **37% faster** (80s vs 126s), with slightly lower cost and 20% fewer tokens.
+> - **Subagent Coordination Boundary:** Forcing the full multi-agent pipeline (`God Mode Full`) cost ~41% more on a ~1,100 LOC codebase. While the Sonnet executor subagent cost only ~$0.05, the Opus orchestrator spent more tokens writing exhaustive briefs and verifying results than direct execution required. Multi-agent delegation becomes cost-positive on larger codebases with long test output dumps.
 
 ---
 
@@ -59,7 +57,7 @@ Measured on a 41-file enterprise platform with cross-module coupling and test su
 
 | Paradigm | How It Operates | Why God Mode Is Different |
 |---|---|---|
-| **Prompt Compression Tools** | Compresses syntax and prompts into shorthand to save ~10–15% tokens. | **Model-Tier Arbitrage:** God Mode doesn't truncate language; it routes mechanical steps to Haiku (18.7x cheaper), cutting costs by **~93%** on multi-file tasks without degrading reasoning. |
+| **Prompt Compression Tools** | Compresses syntax and prompts into shorthand to save ~10–15% tokens. | **Model-Tier Arbitrage:** God Mode doesn't truncate language; on large tasks it routes mechanical steps to lightweight tiers (Haiku is up to 18x cheaper per token) and keeps orchestrator context compact. |
 | **Static Code Indexers** | Builds an AST knowledge graph to help Claude *find* symbols. | **Full Execution Lifecycle:** Code indexers only search code; God Mode pairs a built-in AST indexer with execution subagents, test log filtering, Stop hooks, and diff auditing. |
 | **Heavyweight Multi-Agent Frameworks** | Installs background Docker containers, external vector databases, and heavy toolchains. | **Zero Dependencies:** Pure shell harnesses, Python standard library, and 5 focused subagents. Installs in seconds with no external daemons. |
 | **Standard Claude Code** | Operates as a single conversation thread that degrades over long tasks. | **Orchestration Harness:** Plans with Opus, delegates execution across isolated subagent tiers, and deterministically persists state across session resets. |
@@ -76,9 +74,10 @@ For large repositories and complex refactoring tasks, God Mode includes a built-
 - **Atomic File Swapping:** Uses `os.replace` to prevent race conditions during concurrent agent access.
 - **Fail-Safe Fallback:** If a file contains non-standard syntax or dynamic macros, the indexer skips it gracefully without breaking the graph, and subagents automatically fall back to native `ripgrep`.
 
-**Case Study Measured Impact (from [benchmarks/case-study/](benchmarks/case-study/)):**
-- File reads during research dropped from **113 calls to 8 calls** (**92.9% reduction in I/O**).
-- Subagent trajectory exploration steps dropped from **230 steps to 20 steps** (**91.3% reduction**).
+**Empirical Impact on 41-File Architecture Refactoring (from [benchmarks/event-bus-41/](benchmarks/event-bus-41/)):**
+- Trajectory turns dropped from **19 turns average to 8 turns** (**~58% reduction in turn count**).
+- Wall-clock completion dropped from **126s average to 80s** (**37% faster execution**).
+- 100% of original unit tests and structural decoupling checks passed across all runs.
 
 ---
 
