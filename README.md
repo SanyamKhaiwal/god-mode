@@ -68,6 +68,27 @@ How to read this honestly:
 - **The full guides are the originals** (Superpowers 6.2.0, with small edits listed in `claude/skills/god-mode/superpowers/README.md`). In a normal run the model reads our shorter `QUICK.md` summary of the guide, which saves tokens.
 - **We did not measure whether the guides improve results.** They fire as designed; their effect on quality and cost is unproven.
 
+### Everything else in the box
+
+| Piece | What it is | Status |
+|---|---|---|
+| **`quick` / `full` overrides** | Put `quick` in a prompt to keep a task in the plain Direct route; `full` to run the multi-step Full route | Works as written; model follows the instruction, no hook enforces it |
+| **Full route** (`references/full-route.md`) | For big or risky tasks: research, a written plan, execution, handoff and a final review. State lives in `.godmode/PLAN.md` and `.godmode/HANDOFF.md` (templates in `assets/`); a Stop hook checks they are kept current | Built and unit-tested. No benchmark showed it beating plain Sonnet |
+| **Optional agents** (`claude/agents/`) | `planner` and `solver` (Opus), `executor` and `researcher-deep` (Sonnet), `executor-light` and `researcher` (Haiku), `reviewer` (Sonnet). Installed unless you pass `--no-agents` | **No measured benefit** in our runs; in our tests the model rarely delegated to them. Skip them for a minimal install |
+| **Test-run wrapper** (`godmode-run.sh`) | Runs a command through the output filter, logs PASS/FAIL to `.godmode/test-log.md`, and prints the next rung of the failure ladder | Works. The model has to choose to use it (the automatic filter covers plain test commands) |
+| **Code-graph tool** (`build-graph.py`, `graph-query.py`, `graph-summary.py`) | A dependency and symbol index (Python, Java, C/C++, JS/TS), built on first use in 1-2 s, with `where`, `importers`, `refs` and `outline` queries. No model calls | Works and is tested. **We did not show it beats plain grep**, and nothing triggers it automatically |
+| **Project state at session start** | If your `CLAUDE.md` has a `Project record:` line pointing at a file, the start-up hook prints the marked block of that file, plus the tail of a `Results log:` file | Works; optional |
+| **Self-test** (`selftest.sh`) | 62 checks on the scripts and hooks, run by CI on Linux and macOS | Passing |
+
+### Turning things off
+
+| To disable | Do this |
+|---|---|
+| Test-output filter | `GODMODE_NO_FILTER=1`, or remove its `PreToolUse` entry |
+| Session log | `GODMODE_NO_SESSION_LOG=1`, or remove its two entries |
+| Model advisor | Remove its two `settings.json` entries (no environment switch) |
+| Everything | `python install.py --uninstall` (your own hooks stay) |
+
 ## 5. What we measured (small samples: read the caveats)
 
 We scored runs with hidden tests: real merged GitHub pull requests (the maintainers' own tests) and harder tasks we wrote, in Python, Java and C++. Details and scripts: [`research/`](research/README.md).
