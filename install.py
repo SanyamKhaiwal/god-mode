@@ -5,6 +5,7 @@
     python install.py --dry-run       show what would change, change nothing
     python install.py --no-agents     skip the optional agents
     python install.py --no-model      don't set "model": "sonnet"
+    python install.py --claude-md     also add a short god-mode block to ~/.claude/CLAUDE.md (opt-in)
     python install.py --uninstall     remove the hooks, skill and hook scripts
     python install.py --target DIR    install somewhere other than ~/.claude (testing)
 
@@ -121,6 +122,49 @@ def write_settings(path, settings, dry):
         f.write("\n")
 
 
+MD_START, MD_END = "<!-- god-mode:start -->", "<!-- god-mode:end -->"
+MD_BLOCK = (MD_START + "\n"
+            "## God Mode (coding workflow)\n"
+            "Use the `god-mode` skill for multi-step coding work: features spanning many files, refactors, unfamiliar or\n"
+            "risky code, work that may span sessions, or resuming an unfinished `.godmode/REQUEST.md`. For small, clear\n"
+            "changes just do the work and run the tests. I can say `quick` or `full` to override.\n"
+            + MD_END + "\n")
+
+
+def add_claude_md(target, dry):
+    """Opt-in (--claude-md): append a short marked block to CLAUDE.md so the skill is picked for multi-step work."""
+    path = os.path.join(target, "CLAUDE.md")
+    text = ""
+    if os.path.exists(path):
+        with open(path, encoding="utf-8", newline="") as f:
+            text = f.read()
+    if MD_START in text:
+        print("CLAUDE.md already has the god-mode block")
+        return
+    print(("Would append" if dry else "Appended") + f" a short god-mode block to {path}")
+    if dry:
+        return
+    sep = "" if not text else ("\n" if text.endswith("\n") else "\n\n")
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text + sep + ("\n" if text else "") + MD_BLOCK)
+
+
+def remove_claude_md(target, dry):
+    path = os.path.join(target, "CLAUDE.md")
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8", newline="") as f:
+        text = f.read()
+    a, b = text.find(MD_START), text.find(MD_END)
+    if a < 0 or b < a:
+        return
+    new = (text[:a].rstrip("\n") + "\n" + text[b + len(MD_END):].lstrip("\n")).strip("\n")
+    print(("Would remove" if dry else "Removed") + " the god-mode block from CLAUDE.md")
+    if not dry:
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(new + "\n" if new else "")
+
+
 def check_requirements():
     problems = []
     if shutil.which("python") is None and shutil.which("python3") is None:
@@ -130,7 +174,7 @@ def check_requirements():
     return problems
 
 
-def install(target, dry, agents, want_model):
+def install(target, dry, agents, want_model, claude_md=False):
     if not os.path.isdir(PAYLOAD):
         sys.exit(f"ERROR: payload folder not found: {PAYLOAD}")
     base = target.replace("\\", "/")
@@ -165,6 +209,8 @@ def install(target, dry, agents, want_model):
     print(("Would add" if dry else "Added") + f" {len(added)} settings entries" + (":" if added else " (already installed)"))
     for a in added:
         print("  +", a)
+    if claude_md:
+        add_claude_md(target, dry)
     if not dry:
         print("\nDone. Start a new Claude Code session to load the hooks.")
         print(f"Your previous settings were saved to {settings_path}.godmode-backup (first run only).")
@@ -178,6 +224,7 @@ def uninstall(target, dry):
     removed = strip_ours(settings)
     write_settings(settings_path, settings, dry)
     print(("Would remove" if dry else "Removed") + f" {removed} hook entries from {settings_path}")
+    remove_claude_md(target, dry)
     for rel in ["skills/god-mode"] + ["hubs/" + h for h in HUB_FILES] + ["hubs/test_" + h.replace("-", "_") for h in HUB_FILES] + ["hubs/test_advisor.py"]:
         p = os.path.join(target, rel)
         if os.path.exists(p):
@@ -192,6 +239,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-agents", action="store_true")
     ap.add_argument("--no-model", action="store_true", help='do not set "model": "sonnet"')
+    ap.add_argument("--claude-md", action="store_true",
+                    help="also append a short god-mode block to ~/.claude/CLAUDE.md (off by default)")
     ap.add_argument("--uninstall", action="store_true")
     ap.add_argument("--target", default=os.path.join(os.path.expanduser("~"), ".claude"))
     a = ap.parse_args()
@@ -199,7 +248,7 @@ def main():
     if a.uninstall:
         uninstall(target, a.dry_run)
     else:
-        install(target, a.dry_run, not a.no_agents, not a.no_model)
+        install(target, a.dry_run, not a.no_agents, not a.no_model, a.claude_md)
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ Needs Python 3 and `bash` (on Windows, Git Bash from Git for Windows). Standard 
 python install.py --dry-run     # show what would change, change nothing
 python install.py --no-agents   # skip the optional agents (planner, solver, reviewer, executors, researchers)
 python install.py --no-model    # don't set the Sonnet default
+python install.py --claude-md   # also add a short marked block to ~/.claude/CLAUDE.md (off by default)
 python install.py --uninstall   # remove the hooks, the skill and the hook scripts (your own hooks stay)
 ```
 

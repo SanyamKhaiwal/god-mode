@@ -13,6 +13,8 @@ git clone https://github.com/SanyamKhaiwal/god-mode.git && cd god-mode && python
 
 One command. No network, no `pip install`. Needs Python 3 and bash. [`--dry-run` to preview, `--uninstall` to remove.](INSTALL.md)
 
+**Optional:** add `--claude-md` to also put a 4-line block in your `~/.claude/CLAUDE.md`, so Claude picks the skill for multi-step work without being told. The hooks work without it; it's off by default because it edits your instructions file, and `--uninstall` removes only that block.
+
 ---
 
 ## The surprise
@@ -176,6 +178,7 @@ Five of nine fire on their own; a bug described with no file or error name won't
 | Test-output filter | `GODMODE_NO_FILTER=1`, or remove its `PreToolUse` entry |
 | Session log | `GODMODE_NO_SESSION_LOG=1`, or remove its two entries |
 | Model advisor | Remove its two `settings.json` entries (no environment switch) |
+| The `CLAUDE.md` block (if you added it) | `python install.py --uninstall` removes only that block |
 | Everything | `python install.py --uninstall` (your own hooks stay) |
 
 </details>
