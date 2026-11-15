@@ -49,7 +49,24 @@ A spawn costs about 19k cache-write tokens (roughly $0.15 on Opus) before it doe
 | Output | **Finish gate** | A hook blocks "done" once if code changed after the last test run, or if checklist items are still open. A nudge, not a lock |
 | Output | **Failure ladder** | After repeated failing fixes: systematic debugging, then a stronger agent, then ask you |
 
-Guidance from five bundled Superpowers-style guides (TDD, brainstorming, debugging, verification, review handling) is added by hooks when your words or test output match, so there are no slash commands to remember. Four more guides are written rules only and may be ignored.
+### Bundled Superpowers guides: built in, picked for you
+
+The nine guides from [Superpowers](https://github.com/obra/superpowers) (MIT, by Jesse Vincent) are **bundled and integrated**. You don't install them separately and you don't invoke them with a slash command. When your prompt or your test output matches a situation, a hook adds a short note that points the model at the right guide.
+
+| Guide | When it is picked | Picked automatically? |
+|---|---|:---:|
+| **test-driven-development** | You describe a bug fix, with a code signal (a file, identifier or error type) | Yes, by hook |
+| **brainstorming** | You ask for an open design: architecture, a plugin system, "design a module" | Yes, by hook |
+| **systematic-debugging** | A fix attempt didn't reduce the failing tests | Yes, by hook |
+| **verification-before-completion** | The model is about to say "done" after editing code | Yes, by hook |
+| **receiving-code-review** | The review agent has just returned findings | Yes, by hook |
+| requesting-code-review, dispatching-parallel-agents, using-git-worktrees, finishing-a-development-branch | Written into the skill as rules | No: the model may ignore them |
+
+How to read this honestly:
+- **Five of nine fire on their own.** The hooks match the words of your prompt and the test output, not a deep reading of what you are doing: a bug described with no file or error name won't trigger the TDD note.
+- **Four are rules only.** In our tests, instructions written into a skill were often ignored, while hook-triggered ones fired reliably. That is why only the hooked five are marked automatic.
+- **The full guides are the originals** (Superpowers 6.2.0, with small edits listed in `claude/skills/god-mode/superpowers/README.md`). In a normal run the model reads our shorter `QUICK.md` summary of the guide, which saves tokens.
+- **We did not measure whether the guides improve results.** They fire as designed; their effect on quality and cost is unproven.
 
 ## 5. What we measured (small samples: read the caveats)
 
