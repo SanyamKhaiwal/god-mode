@@ -1,0 +1,7 @@
+Add an --explain flag to the search CLI so users can see why each result ranked where it did.
+- Domain search and stack search: each result includes its relevance score (rounded to 2 decimals) and the list of query terms that matched that row.
+- In --json output, add 'score' and 'matched_terms' fields to every result.
+- In text output, add a line 'score: X.XX (matched: term1, term2)' under each result.
+- --design-system mode ignores --explain and prints a one-line warning to stderr.
+- Without --explain, output must be byte-for-byte unchanged.
+- Add tests covering all of the above.

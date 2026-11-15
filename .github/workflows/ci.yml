@@ -2,20 +2,31 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v2]
   pull_request:
 
 jobs:
   test:
-    name: Run Selftest Suite
-    runs-on: ubuntu-latest
+    name: Install and run all tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Make scripts executable
-        run: chmod +x scripts/*.sh
-
-      - name: Execute God Mode 27-check unit test suite
-        run: bash scripts/selftest.sh
-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Installer tests (temporary home folders)
+        run: python tests/test_install.py
+      - name: Install into the runner's ~/.claude
+        run: python install.py --no-agents
+      - name: Hook tests
+        run: |
+          python ~/.claude/hubs/test_ladder_hook.py
+          python ~/.claude/hubs/test_test_filter_hook.py
+          python ~/.claude/hubs/test_session_log_hook.py
+          python ~/.claude/hubs/test_advisor.py
+      - name: Skill self-test
+        run: bash ~/.claude/skills/god-mode/scripts/selftest.sh

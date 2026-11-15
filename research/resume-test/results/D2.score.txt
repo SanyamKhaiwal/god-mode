@@ -1,0 +1,15 @@
+PASS orig: json domain: results present
+PASS orig: json domain: matched_terms list
+PASS orig: text domain: 'score: X.XX (matched: ...)' line
+PASS orig: json stack: score+matched_terms
+PASS orig: design-system: stdout unchanged by --explain
+PASS orig: design-system: one-line stderr warning
+PASS orig: unchanged vs base: --domain style
+PASS orig: unchanged vs base: --domain style --json
+PASS orig: unchanged vs base: --stack react
+PASS orig: unchanged vs base: --design-system
+PASS amend1 json: scores rounded to 3 decimals
+PASS amend2 json: matched_terms sorted
+PASS amend1 text: score: X.XXX (matched: ...)
+13/13 amend 3/3
+cost $0.62
