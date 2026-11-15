@@ -5,8 +5,7 @@
     python install.py --dry-run       show what would change, change nothing
     python install.py --no-agents     skip the optional agents
     python install.py --no-model      don't set "model": "sonnet"
-    python install.py --claude-md     add the short god-mode block to ~/.claude/CLAUDE.md without asking
-    python install.py --no-claude-md  don't add it or ask (in a terminal the installer asks, default yes)
+    python install.py --no-claude-md  don't add the short god-mode block to ~/.claude/CLAUDE.md (added by default)
     python install.py --uninstall     remove the hooks, skill and hook scripts
     python install.py --target DIR    install somewhere other than ~/.claude (testing)
 
@@ -133,7 +132,7 @@ MD_BLOCK = (MD_START + "\n"
 
 
 def add_claude_md(target, dry):
-    """Opt-in (--claude-md): append a short marked block to CLAUDE.md so the skill is picked for multi-step work."""
+    """Append a short marked block to CLAUDE.md so the skill is picked for multi-step work (skip: --no-claude-md)."""
     path = os.path.join(target, "CLAUDE.md")
     text = ""
     if os.path.exists(path):
@@ -150,30 +149,10 @@ def add_claude_md(target, dry):
         f.write(text + sep + ("\n" if text else "") + MD_BLOCK)
 
 
-def decide_claude_md(flag, interactive, answer):
-    """flag: True (--claude-md), False (--no-claude-md) or None (not given). answer: the user's reply or None.
-    Explicit flags win. Otherwise ask only in a terminal, with yes as the default; never edit CLAUDE.md unasked
-    in a non-interactive run (CI, scripts)."""
-    if flag is not None:
-        return flag
-    if not interactive:
-        return False
-    return (answer or "").strip().lower() not in ("n", "no")
-
-
-def wants_claude_md(flag, interactive, dry, target):
-    if flag is None and interactive:
-        path = os.path.join(target, "CLAUDE.md")
-        if os.path.exists(path) and MD_START in open(path, encoding="utf-8").read():
-            return True            # already there: nothing to ask
-        print("\nRecommended: add this short block to " + path + " so Claude picks the skill for multi-step work:")
-        print("".join("    " + l + "\n" for l in MD_BLOCK.splitlines()))
-        try:
-            answer = input("Add it? [Y/n] ")
-        except EOFError:
-            answer = None
-        return decide_claude_md(None, True, answer)
-    return decide_claude_md(flag, interactive, None)
+def wants_claude_md(flag):
+    """The CLAUDE.md block is part of the install (it is what makes Claude pick the skill for multi-step work).
+    Only an explicit --no-claude-md (flag False) skips it."""
+    return flag is not False
 
 
 def remove_claude_md(target, dry):
@@ -236,7 +215,7 @@ def install(target, dry, agents, want_model, claude_md=False):
     print(("Would add" if dry else "Added") + f" {len(added)} settings entries" + (":" if added else " (already installed)"))
     for a in added:
         print("  +", a)
-    if wants_claude_md(claude_md, sys.stdin.isatty() and sys.stdout.isatty(), dry, target):
+    if wants_claude_md(claude_md):
         add_claude_md(target, dry)
     if not dry:
         print("\nDone. Start a new Claude Code session to load the hooks.")
@@ -266,10 +245,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-agents", action="store_true")
     ap.add_argument("--no-model", action="store_true", help='do not set "model": "sonnet"')
-    ap.add_argument("--claude-md", dest="claude_md", action="store_true", default=None,
-                    help="add a short god-mode block to ~/.claude/CLAUDE.md without asking")
-    ap.add_argument("--no-claude-md", dest="claude_md", action="store_false",
-                    help="don't add (or ask about) the CLAUDE.md block")
+    ap.add_argument("--no-claude-md", dest="claude_md", action="store_false", default=None,
+                    help="don't add the short god-mode block to ~/.claude/CLAUDE.md (added by default)")
     ap.add_argument("--uninstall", action="store_true")
     ap.add_argument("--target", default=os.path.join(os.path.expanduser("~"), ".claude"))
     a = ap.parse_args()

@@ -13,7 +13,7 @@ git clone https://github.com/SanyamKhaiwal/god-mode.git && cd god-mode && python
 
 One command. No network, no `pip install`. Needs Python 3 and bash. [`--dry-run` to preview, `--uninstall` to remove.](INSTALL.md)
 
-**Recommended, and the installer asks:** in a terminal it offers to put a 4-line block in your `~/.claude/CLAUDE.md` (default yes), so Claude picks the skill for multi-step work without being told. The hooks run without it, but the skill, the `quick` / `full` overrides and four of the guides need it. `--claude-md` adds it without asking, `--no-claude-md` skips the question, scripted installs never edit the file unasked, and `--uninstall` removes only that block.
+**It also adds a 4-line block to your `~/.claude/CLAUDE.md`** so Claude picks the skill for multi-step work without being told. That is what gives you the full experience: the skill, the `quick` / `full` overrides and four of the guides depend on it. Your own text is kept, running twice never duplicates it, and `--uninstall` removes only that block. Don't want it? `--no-claude-md`.
 
 ---
 

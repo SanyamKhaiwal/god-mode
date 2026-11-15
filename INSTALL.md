@@ -16,6 +16,7 @@ Needs Python 3 and `bash` (on Windows, Git Bash from Git for Windows). Standard 
 
 - Copies the skill, the hook scripts and (optionally) the agents into `~/.claude`.
 - Merges the hook entries into `~/.claude/settings.json` without touching your own hooks or settings.
+- Appends a short, marked 4-line block to `~/.claude/CLAUDE.md` (creating the file if needed) so Claude picks the skill for multi-step work. Your own text is kept and the block is never duplicated.
 - Sets `"model": "sonnet"` only if you have no `model` setting yet.
 - Saves your original `settings.json` to `settings.json.godmode-backup` the first time.
 - Is safe to run twice: it detects what is already installed and adds nothing.
@@ -27,9 +28,8 @@ Needs Python 3 and `bash` (on Windows, Git Bash from Git for Windows). Standard 
 python install.py --dry-run     # show what would change, change nothing
 python install.py --no-agents   # skip the optional agents (planner, solver, reviewer, executors, researchers)
 python install.py --no-model    # don't set the Sonnet default
-python install.py --claude-md   # add the short marked block to ~/.claude/CLAUDE.md without asking
-python install.py --no-claude-md  # don't add it or ask (in a terminal the installer asks, default yes)
-python install.py --uninstall   # remove the hooks, the skill and the hook scripts (your own hooks stay)
+python install.py --no-claude-md  # don't add the short block to ~/.claude/CLAUDE.md (added by default)
+python install.py --uninstall   # remove the hooks, the skill, the hook scripts and the CLAUDE.md block (your own hooks and text stay)
 ```
 
 The agents are optional. We found no measured benefit from them (see the README), so `--no-agents` is a reasonable minimal install.
