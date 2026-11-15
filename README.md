@@ -58,7 +58,7 @@ god-mode works on the left column only.
 
 ### See it work
 
-**The filter** (abridged, from a real run):
+**The filter** (abridged; a real 315-line run was trimmed to 51 lines, shown here shortened further):
 ```
 $ python -m pytest -q
 [filter-output] 315 lines, exit 1. Showing error/failure lines, then the last 40 lines.
@@ -79,7 +79,7 @@ I created hello.txt in the project root, containing the word hi.
 Edited: hello.txt
 ```
 
-**Resume** (a new session in the same folder):
+**Resume** (a new session in the same folder; illustrative layout, the real output prints your own checklist):
 ```
 > continue
 === GOD MODE: unfinished requirements in .godmode/REQUEST.md ===
