@@ -12,7 +12,7 @@ step="$1"; shift
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 
-"$(dirname "$0")/filter-output.sh" "$@" > "$tmp" 2>&1
+bash "$(dirname "$0")/filter-output.sh" "$@" > "$tmp" 2>&1   # via bash: works without the executable bit
 code=$?
 cat "$tmp"
 
