@@ -1,86 +1,175 @@
 # god-mode
 
-**Where Claude Code's tokens go, which part of that you can actually control, and what we measured when we tried.**
+### Your Claude Code bill, explained. Control the part you can. Skip the part you can't.
 
-A research project with working tooling for Claude Code. Short version: on well-specified coding tasks, **Sonnet and even Haiku matched Opus at a fraction of the price**, and most of the saving comes from choosing the model. This repo adds guard rails around that (requirements checklist, "not done until tests ran", shorter test logs, a session log) and publishes every experiment, including the ones that found nothing.
+[![CI](https://github.com/SanyamKhaiwal/god-mode/actions/workflows/ci.yml/badge.svg)](https://github.com/SanyamKhaiwal/god-mode/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+We measured where the tokens go, tested what actually saves money, and built the parts that held up. No hype: every number links to the experiment behind it, and the failures are published too.
+
+```bash
+git clone https://github.com/SanyamKhaiwal/god-mode.git && cd god-mode && python install.py
+```
+
+One command. No network, no `pip install`. Needs Python 3 and bash. [`--dry-run` to preview, `--uninstall` to remove.](INSTALL.md)
 
 ---
 
-## 1. Where the tokens go
+## The surprise
 
-Fitted from our own run logs on Sonnet and Opus sessions. Shares are of the bill, by billing category.
+We gave the same six real GitHub issues (scored with the maintainers' own hidden tests) to three models.
 
-| Bucket | Share of the bill | What it is |
-|---|:---:|---|
-| **Cache writes** | ~48-49% | Everything new that enters context: your prompt, files read, tool output, skill text, agent briefs |
-| **Output** | ~27-29% | What the model writes: code, edits, explanations |
-| **Cache reads** | ~21-24% | Re-reading the whole conversation on every turn (cheap per token, many turns) |
-| **Fixed startup** | ~1.3k tokens | Skill and tool descriptions loaded each session (~7.5k with every skill and MCP server) |
+```
+              passed   cost for all six
+Haiku          6 / 6   $0.10  ▏
+Sonnet         6 / 6   $1.08  █████
+Opus           6 / 6   $2.16  ██████████
+```
 
-All of it is multiplied by the **model price**: Opus costs about 1.7-2.2x Sonnet per token, and Haiku runs cost about 7-13% of a Sonnet run.
+**Same results, 10 to 20 times the price.** On well-specified tasks the cheaper model was enough. Most of what you can save is just *choosing the model*, and god-mode makes that choice easy.
 
-## 2. How much of that is in your hands
+## Where your tokens actually go
 
-| Bucket | In your hands? | What controls it | What we did | What we found |
-|---|:---:|---|---|---|
-| **Model choice** | **Yes, the biggest lever** | `/model`, the default in `settings.json` | Sonnet default; hooks hint when a task looks Haiku-sized or Opus-sized (you decide, nothing switches itself) | Haiku, Sonnet and Opus tied on every task we could score. For the six solvable real tasks: Haiku $0.10, Sonnet $1.08, Opus $2.16 |
-| **Cache writes** (tool output, files read) | **Partly** | What you let into context | A filter that trims long test output to failures and the tail | A 315-line failing run came back as 51 lines (about -83%). Effect on the total bill: not measured |
-| **Cache reads** (re-reading the conversation) | **Partly** | Session length | Requirements checklist + hook-written session log, so a short fresh session can pick up where you left off | Memory-off resume test: 13/13 with the files vs 8/13 without. Saving from restarting: not measured |
-| **Output** (the model's own work) | **Barely** | Mostly the model and the task | A "tests ran after the last edit" gate and a failure ladder, aimed at fewer wasted retries | Gate works as designed; its effect on cost is unmeasured. Ladder never fired on a real stuck task |
-| **Fixed startup** | Yes, but small | How many skills/MCP servers you load | Skill text loads only when triggered | About 1.3k tokens, under a cent per session |
-| **Prompt caching itself** | **No** | Anthropic | Nothing. It cannot be edited mid-session, and you wouldn't want to: it is what makes re-reading ~10x cheaper | n/a |
-| **Token prices, how the model reasons, tokenisation** | **No** | Anthropic | Nothing | n/a |
+```
+Cache writes  ██████████████████████████  ~49%   new context: files, tool output, skills
+Output        ███████████████             ~28%   what the model writes
+Cache reads   ████████████                ~23%   re-reading the conversation every turn
+```
 
-**In short:** you control which model runs, how long a session gets, and how much junk enters context. You do not control caching, prices or how hard the model thinks. Our work targets the first group.
+| You control it | You don't |
+|---|---|
+| Which **model** runs (the biggest lever) | Prompt caching (it's why re-reading is ~10x cheaper) |
+| How **long** a session gets | Anthropic's prices |
+| How much **junk** enters context | How hard the model thinks |
 
-## 3. What a spawned agent costs
+god-mode works on the left column only.
 
-A spawn costs about 19k cache-write tokens (roughly $0.15 on Opus) before it does any work. In our runs an Opus planner, an Opus-plans/Haiku-builds setup, and the built-in `/advisor` cost **5-14x** a single session and scored no higher on any task we could grade. Agents may still pay off when work is large and independent or would flood the main context; they did not for the tasks we tested.
+---
 
-## 4. What we built, per lever
+## What you get
 
-| Lever | Feature | How it works |
+| | |
+|---|---|
+| **A nudge to the right model** | "This looks Haiku-sized" or "this one deserves Opus", only when the signal is clear. You decide; nothing switches itself. |
+| **Shorter test logs** | A 315-line failing test run comes back as 51 lines, failures kept, exit code intact. Automatic, no setup. |
+| **Say "continue" and pick up where you left off** | Your request becomes a checklist; every prompt you send is logged by a hook. Open a new session, type `continue`. |
+| **No "done" without proof** | If code changed after the last test run, or checklist items are still open, the finish is held back once. |
+| **Five Superpowers guides, picked for you** | Test-first on bug fixes, brainstorming on design requests, systematic debugging when a fix fails. No slash commands. |
+
+### See it work
+
+**The filter** (abridged, from a real run):
+```
+$ python -m pytest -q
+[filter-output] 315 lines, exit 1. Showing error/failure lines, then the last 40 lines.
+----- matches -----
+...assert 1 == 2
+----- failure locations -----
+...
+[exit code: 1]
+```
+
+**The session log** (`.godmode/SESSION.md`, written by a hook, zero model tokens):
+```
+## 2026-11-15 20:15 USER
+Create a file hello.txt containing the word hi, then tell me you did it.
+
+### 20:16 ASSISTANT
+I created hello.txt in the project root, containing the word hi.
+Edited: hello.txt
+```
+
+**Resume** (a new session in the same folder):
+```
+> continue
+=== GOD MODE: unfinished requirements in .godmode/REQUEST.md ===
+- [x] 1. --explain adds score and matched_terms
+- [ ] 2. Scores shown with 3 decimals        <- picks up here
+```
+
+---
+
+## Honest by design
+
+**We tested whether a stronger model rescues a stuck task, whether an Opus planner helps a cheap worker, and whether Claude's built-in `/advisor` pays off. In our runs: no evidence it does** (5 to 14 times the cost, same score). So the tooling stays small, and the README says so.
+
+- god-mode itself did **not** beat plain Sonnet on cost or pass rate ($1.09 vs $1.08). The saving is the model choice.
+- Mostly **one run per cell**. Small samples are noisy and we say so.
+- **We never found where Haiku or Sonnet break.** Every task we could score, every model solved. Six harder real tasks failed for all models because their tests check details the issue never states.
+- Hooks match the *words* of your prompt, not your intent.
+
+<details>
+<summary><b>The full token map: what's in your hands, what isn't, and what we tried</b></summary>
+
+Fitted from our own run logs on Sonnet and Opus sessions. Shares are of the bill by billing category. Opus costs about 1.7 to 2.2x Sonnet per token; Haiku runs cost about 7 to 13% of a Sonnet run.
+
+| Bucket | Share | In your hands? | What controls it | What we did | What we found |
+|---|:---:|:---:|---|---|---|
+| **Model choice** | x all | **Yes, biggest** | `/model`, `settings.json` default | Sonnet default; hints for Haiku/Opus | Tiers tied on every scorable task; Haiku $0.10, Sonnet $1.08, Opus $2.16 for six tasks |
+| **Cache writes** | ~48-49% | **Partly** | What you let into context | Test-output filter | 315 lines to 51 (about -83%); effect on the total bill not measured |
+| **Cache reads** | ~21-24% | **Partly** | Session length | Checklist + session log so a short fresh session can resume | Memory-off resume test: 13/13 with files vs 8/13 without; saving from restarting not measured |
+| **Output** | ~27-29% | **Barely** | The model and the task | Finish gate and failure ladder, aimed at fewer wasted retries | Effect on cost unmeasured; ladder never fired on a real stuck task |
+| **Fixed startup** | ~1.3k tokens | Yes, small | How many skills/MCP servers load | Skill text loads only when triggered | Under a cent per session |
+| **Prompt caching** | | **No** | Anthropic | Nothing: it can't be edited mid-session | |
+
+A spawned agent costs about 19k cache-write tokens (roughly $0.15 on Opus) before it does any work. See [`research/COST-MODEL.md`](research/COST-MODEL.md).
+
+</details>
+
+<details>
+<summary><b>What we measured (with caveats)</b></summary>
+
+| Question | Result | Caveat |
 |---|---|---|
-| Model choice | **Model advisor** | A hook reads your prompt and, when the signals are clear, prints a hint: Haiku for a clear single change, Opus for concurrency/security/architecture-type work. Never switches anything |
-| Cache writes | **Test-output filter** | Plain test commands (`pytest`, `npm test`, `go test`...) run through a filter that keeps failures, failure locations and the tail, and preserves the exit code. It never approves a command |
-| Cache reads | **Requirements ledger** | `.godmode/REQUEST.md`: your request verbatim plus a numbered checklist, ticked as work finishes |
-| Cache reads | **Session log** | A hook writes every prompt you send, verbatim, and a one-line digest of each turn to `.godmode/SESSION.md`. No model tokens |
-| Cache reads | **Resume** | At session start, if a task is open, the checklist and the log tail are printed, so "continue" works in a fresh session |
-| Output | **Finish gate** | A hook blocks "done" once if code changed after the last test run, or if checklist items are still open. A nudge, not a lock |
-| Output | **Failure ladder** | After repeated failing fixes: systematic debugging, then a stronger agent, then ask you |
+| Does a cheaper model match Opus? | Yes on every scorable task | The scorable tasks are the ones every tier solved |
+| Sonnet-default vs Opus-default | God-mode on Sonnet cost 31-40% less (9 tasks: $3.05 vs $5.10; 6 tasks: $2.80 vs $4.05) | Sets overlap, one run per cell, Opus at high effort vs Sonnet medium |
+| Does god-mode beat plain Sonnet? | No: $1.09 vs $1.08, same 6/6 | The saving is the model choice |
+| Does the checklist help across sessions? | Yes with built-in memory off: 13/13 vs 8/13 (3 runs each) | With built-in memory on, plain Claude Code also scored 13/13. One task |
+| Does a stronger planner or `/advisor` help? | No evidence | 2-6 runs, on tasks no tier solved |
+| Where do the models break? | **Not found** | See above |
 
-### Bundled Superpowers guides: built in, picked for you
+Scripts, score files and the full write-up: [`research/`](research/README.md).
 
-The nine guides from [Superpowers](https://github.com/obra/superpowers) (MIT, by Jesse Vincent) are **bundled and integrated**. You don't install them separately and you don't invoke them with a slash command. When your prompt or your test output matches a situation, a hook adds a short note that points the model at the right guide.
+</details>
 
-| Guide | When it is picked | Picked automatically? |
+<details>
+<summary><b>The nine bundled Superpowers guides: which are picked automatically</b></summary>
+
+The nine guides from [Superpowers](https://github.com/obra/superpowers) (MIT, Jesse Vincent) are **bundled and integrated**: no separate install, no slash command. When your prompt or test output matches a situation, a hook points the model at the right guide.
+
+| Guide | When it is picked | Automatic? |
 |---|---|:---:|
-| **test-driven-development** | You describe a bug fix, with a code signal (a file, identifier or error type) | Yes, by hook |
-| **brainstorming** | You ask for an open design: architecture, a plugin system, "design a module" | Yes, by hook |
+| **test-driven-development** | A bug-fix prompt with a code signal (a file, identifier or error type) | Yes, by hook |
+| **brainstorming** | An open design: architecture, a plugin system, "design a module" | Yes, by hook |
 | **systematic-debugging** | A fix attempt didn't reduce the failing tests | Yes, by hook |
 | **verification-before-completion** | The model is about to say "done" after editing code | Yes, by hook |
-| **receiving-code-review** | The review agent has just returned findings | Yes, by hook |
-| requesting-code-review, dispatching-parallel-agents, using-git-worktrees, finishing-a-development-branch | Written into the skill as rules | No: the model may ignore them |
+| **receiving-code-review** | The review agent just returned findings | Yes, by hook |
+| requesting-code-review, dispatching-parallel-agents, using-git-worktrees, finishing-a-development-branch | Written into the skill as rules | No: may be ignored |
 
-How to read this honestly:
-- **Five of nine fire on their own.** The hooks match the words of your prompt and the test output, not a deep reading of what you are doing: a bug described with no file or error name won't trigger the TDD note.
-- **Four are rules only.** In our tests, instructions written into a skill were often ignored, while hook-triggered ones fired reliably. That is why only the hooked five are marked automatic.
-- **The full guides are the originals** (Superpowers 6.2.0, with small edits listed in `claude/skills/god-mode/superpowers/README.md`). In a normal run the model reads our shorter `QUICK.md` summary of the guide, which saves tokens.
-- **We did not measure whether the guides improve results.** They fire as designed; their effect on quality and cost is unproven.
+Five of nine fire on their own; a bug described with no file or error name won't trigger the TDD note. In a normal run the model reads our shorter `QUICK.md` summary of each guide (the full originals, Superpowers 6.2.0, are bundled too). We did not measure whether the guides improve results.
 
-### Everything else in the box
+</details>
+
+<details>
+<summary><b>Everything else in the box</b></summary>
 
 | Piece | What it is | Status |
 |---|---|---|
-| **`quick` / `full` overrides** | Put `quick` in a prompt to keep a task in the plain Direct route; `full` to run the multi-step Full route | Works as written; model follows the instruction, no hook enforces it |
-| **Full route** (`references/full-route.md`) | For big or risky tasks: research, a written plan, execution, handoff and a final review. State lives in `.godmode/PLAN.md` and `.godmode/HANDOFF.md` (templates in `assets/`); a Stop hook checks they are kept current | Built and unit-tested. No benchmark showed it beating plain Sonnet |
-| **Optional agents** (`claude/agents/`) | `planner` and `solver` (Opus), `executor` and `researcher-deep` (Sonnet), `executor-light` and `researcher` (Haiku), `reviewer` (Sonnet). Installed unless you pass `--no-agents` | **No measured benefit** in our runs; in our tests the model rarely delegated to them. Skip them for a minimal install |
-| **Test-run wrapper** (`godmode-run.sh`) | Runs a command through the output filter, logs PASS/FAIL to `.godmode/test-log.md`, and prints the next rung of the failure ladder | Works. The model has to choose to use it (the automatic filter covers plain test commands) |
-| **Code-graph tool** (`build-graph.py`, `graph-query.py`, `graph-summary.py`) | A dependency and symbol index (Python, Java, C/C++, JS/TS), built on first use in 1-2 s, with `where`, `importers`, `refs` and `outline` queries. No model calls | Works and is tested. **We did not show it beats plain grep**, and nothing triggers it automatically |
-| **Project state at session start** | If your `CLAUDE.md` has a `Project record:` line pointing at a file, the start-up hook prints the marked block of that file, plus the tail of a `Results log:` file | Works; optional |
-| **Self-test** (`selftest.sh`) | 62 checks on the scripts and hooks, run by CI on Linux and macOS | Passing |
+| **`quick` / `full` overrides** | `quick` keeps a task in the plain Direct route; `full` runs the multi-step Full route | Works as written; no hook enforces it |
+| **Full route** | Research, plan, execute, handoff, review, with `.godmode/PLAN.md` and `HANDOFF.md` (templates in `assets/`) | Built and unit-tested; no benchmark showed it beating plain Sonnet |
+| **Optional agents** | `planner`, `solver` (Opus); `executor`, `researcher-deep` (Sonnet); `executor-light`, `researcher` (Haiku); `reviewer` (Sonnet). Skip with `--no-agents` | **No measured benefit**; the model rarely delegated to them |
+| **Test-run wrapper** (`godmode-run.sh`) | Runs a command through the filter, logs PASS/FAIL to `.godmode/test-log.md`, prints the next failure-ladder step | Works; the model has to choose to use it |
+| **Code-graph tool** | Dependency and symbol index (Python, Java, C/C++, JS/TS), built on first use in 1-2 s; `where`, `importers`, `refs`, `outline` | Works and is tested; **not shown to beat grep**; nothing triggers it automatically |
+| **Project state at start** | If `CLAUDE.md` has a `Project record:` line, its marked block is printed at session start | Works; optional |
+| **Self-test** | 62 checks on scripts and hooks, run by CI on Linux and macOS | Passing |
 
-### Turning things off
+</details>
+
+<details>
+<summary><b>Safety, privacy and turning things off</b></summary>
+
+- **The test-output filter rewrites test commands but never approves anything.** Your normal permission rules apply to the rewritten command. If you allow only narrow patterns such as `Bash(pytest*)`, it will ask for approval.
+- **The session log records every prompt you type**, including anything you paste, in `.godmode/SESSION.md`. Add `.godmode/` to `.gitignore` and don't paste secrets. It only runs in folders that already have a `.godmode/` folder.
 
 | To disable | Do this |
 |---|---|
@@ -89,58 +178,27 @@ How to read this honestly:
 | Model advisor | Remove its two `settings.json` entries (no environment switch) |
 | Everything | `python install.py --uninstall` (your own hooks stay) |
 
-## 5. What we measured (small samples: read the caveats)
+</details>
 
-We scored runs with hidden tests: real merged GitHub pull requests (the maintainers' own tests) and harder tasks we wrote, in Python, Java and C++. Details and scripts: [`research/`](research/README.md).
+---
 
-| Question | Result | Caveat |
-|---|---|---|
-| Does a cheaper model match Opus? | Yes on every scorable task | The tasks we could score are the ones every tier solved |
-| Sonnet-default vs Opus-default | God-mode on Sonnet cost 31-40% less (9 tasks: $3.05 vs $5.10; 6 tasks: $2.80 vs $4.05) | Sets overlap, one run per cell, Opus ran at high effort vs Sonnet medium |
-| Does god-mode beat plain Sonnet? | No: $1.09 vs $1.08, same 6/6 | The saving comes from the model choice |
-| Does the checklist help across sessions? | Yes with built-in memory off: 13/13 vs 8/13 (3 runs each) | With built-in memory on, plain Claude Code also scored 13/13. One task |
-| Does a stronger planner or `/advisor` help? | No evidence | 2-6 runs, on tasks no tier solved |
-| Where do the models break? | **Not found** | Six hard real tasks failed for every model because their tests check details the issue never states |
-
-## 6. Things to know before installing
-
-- **The test-output filter rewrites test commands.** It never approves anything: your normal permission rules apply to the rewritten command. If you allow only narrow patterns such as `Bash(pytest*)`, the rewritten command will ask for approval. `GODMODE_NO_FILTER=1` turns it off.
-- **The session log records every prompt you type**, including anything you paste, in `.godmode/SESSION.md`. Add `.godmode/` to `.gitignore` and don't paste secrets. `GODMODE_NO_SESSION_LOG=1` turns it off. It only runs in folders that already have a `.godmode/` folder.
-- Needs `bash` (Git Bash on Windows) and Python 3 on your PATH. No network, no `pip install`.
-
-**Install:**
-
-```bash
-git clone https://github.com/SanyamKhaiwal/god-mode.git
-cd god-mode
-python install.py          # --dry-run to preview, --uninstall to remove
-```
-
-See [INSTALL.md](INSTALL.md).
-
-## 7. The research gap (where we'd love help)
+## The research gap: help us find where the models break
 
 Everyone says one model is "better at coding". Coding is huge, and that sentence says little. We know of no published map of where each model actually breaks.
 
-- **Where do Haiku and Sonnet fail?** Every task we could score was solved by every tier.
-- **Which kinds of coding are hard for which models?** Our guess: web work is easy; backend and security work (vulnerability finding, pen-testing) harder; signal-processing or RF code harder still. Untested.
+- **Where do Haiku and Sonnet fail?** We haven't found it.
+- **Which kinds of coding are hard for which models?** Our guess: web work is easy; backend and security work (vulnerability finding, pen-testing) harder; signal-processing or RF code harder still. **Untested.**
 - **Does a stronger model rescue a stuck task?** The escalation path exists but has never fired live.
-- **How much does restarting a long session really save?** Cache reads are about a fifth of the bill; the saving from a clean restart is unmeasured.
+- **How much does restarting a long session really save?** Cache reads are about a fifth of the bill; the saving is unmeasured.
 
-## 8. What's next
+**Next:** a breaking-point map by domain (web, backend, systems, numerics, security, RF) with several runs per cell; tasks where one tier passes and another fails; matched-effort repeated runs; a restart-vs-continue cost measurement.
 
-1. A **breaking-point map** by domain (web, backend, systems, numerics, security, RF), several runs per cell, with cost.
-2. **Tasks where one tier passes and another fails**, so escalation can be proven or dropped.
-3. **Matched-effort, repeated runs** of the Sonnet-vs-Opus comparison, with variance.
-4. A measured **restart-vs-continue** cost comparison on real sessions.
+> **Found a task where the cheap model fails and the expensive one wins? Open an issue.** That is the result we're looking for.
 
-## What's in this repo
+---
 
-- `claude/`: exactly what gets installed into `~/.claude` (the skill, four hooks, optional agents). Nine bundled Superpowers guides are MIT-licensed, credited to Jesse Vincent.
-- `install.py`, `tests/`: the installer and its tests. Hook tests live in `claude/hubs/`.
-- `research/`: findings, cost model, scripts and score files. `research/legacy-event-bus-41/` is the earlier benchmark, relabelled with what it does and doesn't show.
-- CI installs the project and runs every test on Linux and macOS.
+## In this repo
 
-## Honest status
+`claude/` is exactly what gets installed into `~/.claude` (the skill, four hooks, optional agents) · `install.py` and `tests/` · `research/` (findings, cost model, scripts, score files; `legacy-event-bus-41/` is the earlier benchmark, relabelled with what it does and doesn't show) · CI installs the project and runs every test on Linux and macOS.
 
-Single runs are noisy and we say so. If you find a task where the cheap model fails and the expensive one wins, open an issue. That is the result we're looking for.
+MIT licensed. Bundled Superpowers guides: MIT, credited to Jesse Vincent.
