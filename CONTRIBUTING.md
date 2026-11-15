@@ -11,19 +11,19 @@ Thank you for contributing. The most valuable contributions to God Mode are **re
 | **Share a Comparison Run** | Run the same multi-file coding task in Claude Code with and without God Mode. Report token usage, cost difference, and whether any bugs were caught before or after building |
 | **Report an Edge Case** | If an acceptance command had unusual output that bypassed `filter-output.sh` or caused a hook failure, open an issue with the command and trimmed log |
 | **Improve Prompts** | Subagent prompt tweaks in `agents/` that improve compliance without inflating prompt token costs |
-| **CI / Test Additions** | Add tests to `scripts/selftest.sh` covering quirks across platforms |
+| **CI / Test Additions** | Add tests to `claude/skills/god-mode/scripts/selftest.sh` covering quirks across platforms |
 
 ---
 
 ## Development & Testing
 
-Before submitting a Pull Request, verify that all 22 unit tests pass:
+Before submitting a Pull Request, verify that the tests pass (`python tests/test_install.py`, the hook tests in `claude/hubs/`, and the self-test below):
 
 ```bash
-bash scripts/selftest.sh
+bash claude/skills/god-mode/scripts/selftest.sh
 ```
 
-All 22 tests must output `PASS`.
+The self-test must report no FAIL lines.
 
 ---
 

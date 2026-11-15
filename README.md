@@ -1,225 +1,73 @@
-# God Mode
+# god-mode
 
-**A high-velocity orchestration harness for Claude Code. Cuts agent turns by 58%, accelerates multi-file refactors by 37%, catches edge-case bugs via independent subagent diff review, and persists task state deterministically across `/clear` and context compactions.**
+**A field report and toolkit on cutting Claude Code cost: what we tried, what held up, and what is still unknown.**
 
-[![CI](https://github.com/SanyamKhaiwal/god-mode/actions/workflows/ci.yml/badge.svg)](https://github.com/SanyamKhaiwal/god-mode/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: macOS · Linux · Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-green.svg)](#quick-start)
-
-> "Navigate with topology, plan with Opus, execute with targeted subagents, verify every diff, and never lose state across session resets."
+The short version: on well-specified coding tasks, **Sonnet and even Haiku matched Opus at a fraction of the price**. You can get most of that saving with `/model sonnet` and no extra tooling. This repo adds a few guard rails around that (a requirements checklist, a "no done without tests" gate, shorter test logs, a session log) and records every experiment, including the ones that found nothing.
 
 ---
 
-## Why God Mode is an Upgrade to Claude Code
+## What it does, in plain words
 
-Standard Claude Code is exceptional, but on large, multi-file codebases and long development sessions, developers encounter four fundamental failure modes:
+You use Claude Code the way you always do. Hooks run in the background and do five jobs:
 
-| Native Claude Code Challenge | How God Mode Solves It | Empirical Impact |
-|---|---|:---:|
-| **Exploratory Wandering:** Agent blindly opens file after file to trace dependencies, burning turns and context. | **Zero-Dependency AST Graph:** Scans project imports and inheritance in <1s on CPU (`build-graph.py`), giving the model an 80-line topology brief before it writes code. | **58% fewer turns** *(19 $\to$ 8 turns)*<br>**37% faster** *(126s $\to$ 80s)* |
-| **Context Compaction Amnesia:** Long sessions trigger lossy conversational compactions; running `/clear` wipes all memory of prior attempts. | **Deterministic Disk Ledger:** Persists structured state (`.godmode/PLAN.md` & `HANDOFF.md`) across resets; `session-start.sh` hook automatically restores context. | **Zero context loss** across `/clear` & compactions |
-| **False Completion Confessions:** Models implement code, run basic tests, claim "done", but leave edge cases untested or APIs unwired. | **Automated Diff Reviewer:** `reviewer` subagent audits git diff against the user's requirements before the turn can conclude. | **Caught test assertion gap** missed by plain Opus |
-| **Noisy Test Dumps:** 1,500-line pytest dumps flood active context, triggering conversational lag. | **Test Output Trimmer:** `filter-output.sh` keeps only the failing failure tail and exit code; logs full traces to disk. | **Clean, compact context** |
+| Job | What you get |
+|---|---|
+| **Cheap by default** | Sessions start on Sonnet. A hint appears when a task looks simple enough for Haiku, or hard enough to deserve a stronger model. You decide; nothing switches on its own. |
+| **Doesn't forget what you asked** | Your request becomes a numbered checklist in `.godmode/REQUEST.md`. A hook also writes every prompt you send, word for word, to `.godmode/SESSION.md`. Open a new session in the same folder, say "continue", and it picks up where you left off. |
+| **No "done" without proof** | A hook blocks the finish once if code changed after the last test run, or if checklist items are still unticked. It is a nudge you can answer, not a hard lock. |
+| **Shorter test logs** | Plain test commands (`pytest`, `npm test`, `go test`...) are run through a filter that keeps failures and the tail. A 315-line failing run came back as 51 lines, exit code intact. |
+| **Help when stuck** | After repeated failing fix attempts, a hook suggests systematic debugging, then a stronger agent, then asking you. (Built and unit-tested; it has not yet fired on a real stuck task.) |
 
----
+Guidance from five of the bundled Superpowers-style guides (TDD, brainstorming, debugging, verification, review handling) is added by hooks when your words or your test output match, so you don't type any slash commands.
 
-## Empirical Benchmarks & Boundaries
+## What we measured (small samples: read the caveats)
 
-Every orchestration harness introduces coordination overhead. To determine where God Mode accelerates development versus where plain Claude Code is already optimal, both multi-file and small-scale scenarios were evaluated on Claude Code 2.1.296 (`claude-opus-5-5`) with raw CLI JSON logs.
+We scored runs with hidden tests: real merged GitHub pull requests (the maintainers' own tests) and harder tasks we wrote ourselves, in Python, Java and C++.
 
-### 1. Multi-File Event Bus Refactoring (41 Files, 23 Tests)
-Measured on a 41-file enterprise platform (~1,100 lines of Python code). Task: decouple direct cross-service calls between billing, subscription, webhook, and audit services by introducing an in-process Event Bus (`src/core/events.py`). Raw execution logs, prompts, and checkers are recorded in [benchmarks/event-bus-41/](benchmarks/event-bus-41/).
+- **Plain Sonnet was enough on well-specified tasks.** Haiku, Sonnet and Opus all passed the six real-issue tasks that any of them could solve. Haiku cost **$0.10** for the six, Sonnet **$1.08**, Opus **$2.16**.
+- **god-mode on Sonnet vs Opus on our own tasks:** 9 tasks, **$3.05 vs $5.10 (-40%)**, and a second set of 6 tasks, **$2.80 vs $4.05 (-31%)**. The sets overlap. Each cell is **one run**. Opus ran at *high* effort and Sonnet at *medium*, so part of the gap is effort, not model.
+- **god-mode itself added no measurable saving over plain Sonnet** ($1.09 vs $1.08 on the six real tasks). The saving comes from the model choice.
+- **The requirements checklist helped across sessions:** with Claude Code's built-in memory switched **off**, a session with nothing carried over lost every mid-session change (8 of 13 checks, 3 runs). With the checklist, or the hook-written log, all 13 passed (3 runs each). With built-in memory **on**, plain Claude Code also passed 13 of 13. One task, one artificial interruption.
+- **A stronger planner or the built-in `/advisor` did not help:** Opus planning for a Haiku worker, and Haiku with an Opus advisor, cost 7-14x more than Haiku alone and scored the same, on tasks no tier could solve (2-6 runs). Treat that as "no evidence of benefit", not as proof.
 
-| Setup | Average Turns | Average Duration | Average Tokens | Average Cost | Correctness (Tests & Code Checks) |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **Plain Opus 5.5 (Baseline)** | 19 turns *(15–23)* | 126s *(115–137s)* | 600,387 | $0.682 | 100% (23/23 tests pass) |
-| **God Mode (Auto Triage)** | **8 turns** *(7–9)* | **80s** *(79–80s)* | **479,252** | **$0.609** | 100% (23/23 tests pass) |
-| **God Mode (Forced Full Pipeline)** | 25.5 turns *(21–30)* | 167s *(150–183s)* | 1,168,253 | $0.962 | 100% (23/23 tests pass) |
+## What it does NOT do
 
-#### The Achievement Hierarchy on Complex Codebases:
-1. **Turns Reduced (~58% fewer turns):** Dropped from an average of 19 turns down to **8 turns**. By consulting the AST project map first, the model eliminated exploratory wandering and executed with direct precision.
-2. **Speed Accelerated (37% faster):** Wall-clock completion dropped from **126s down to 80s**—saving 46 seconds on a single architectural refactor.
-3. **Tokens Saved (20% fewer tokens):** Context stayed lean (479k vs 600k tokens), preventing context bloat.
-4. **Cost Parity / Savings (~11% lower):** Succeeded at **$0.609 vs $0.682**, proving that God Mode delivers speed and focus without adding a price premium.
+- It does not make a model smarter. On every task we could score, plain Sonnet matched it.
+- The six hard real-issue tasks failed for every model, because their tests check internals the issue never states. They don't tell us where the models break.
+- Caching is Anthropic's and we can't change it. The savings come from model choice and from restarting a long session with a short handoff.
+- Some bundled guidance is only a written rule the model may ignore. Five guides fire from hooks; four are rules only.
 
----
+## Things to know before installing
 
-### 2. Small Task Benchmark & Performance Boundary (5 Files)
-Measured on a 5-file Python shop package with 5 hidden unit tests. Raw execution logs are recorded in [benchmarks/small-task/](benchmarks/small-task/).
+- **The test-output filter rewrites test commands.** It never approves anything: your normal permission rules apply to the rewritten command. If you allow only narrow patterns such as `Bash(pytest*)`, the rewritten command will ask for approval. Set `GODMODE_NO_FILTER=1` to turn it off.
+- **The session log records every prompt you type**, including anything you paste. It lives in `.godmode/SESSION.md` in your project. Add `.godmode/` to `.gitignore` and don't paste secrets. `GODMODE_NO_SESSION_LOG=1` turns it off. It only runs in folders that already have a `.godmode/` folder.
+- Install: `git clone` the repo and run `python install.py` (see INSTALL.md). Needs `bash` (Git Bash on Windows) and Python 3 on your PATH.
 
-| Setup | Turns | Duration | Total Cost | Subagents Used | Hidden Tests |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **Plain Opus 5.5 (Warm Cache)** | **3** | **37s** | **$0.230** | None | 5/5 Pass |
-| **God Mode (Auto Triage)** | 6–7 | 45s | $0.42 – $0.44 | None *(Triage selected Light; avoided subagents)* | 5/5 Pass |
-| **God Mode (Forced Full Pipeline)** | 8–9 | 74s | $0.55 – $0.57 | `reviewer` on Sonnet ($0.036) | 5/5 Pass *(Reviewer caught test flaw)* |
+## The research gap (where we'd love help)
 
-> **Documented Performance Boundary:**
-> - On small 1–5 file edits, **plain Claude Code is faster and cheaper**. Anthropic's prompt caching makes small tasks run in ~3 turns for ~$0.23. Evaluating skill instructions and triage rules adds 3–4 extra Opus turns (~$0.19 in cached reads).
-> - **Boundary Rule:** Use Direct mode or plain Claude Code for small 1–5 file edits. Use God Mode for multi-file refactoring (10+ files), architectural migrations, and multi-session work that spans compactions.
+Everyone says one model is "better at coding". Coding is huge, and that sentence says little. Nobody we know of has published a map of where each model actually breaks.
 
----
+**Open questions:**
+- **Where does Haiku fail, and where does Sonnet?** Every task we could score was solved by every tier. We haven't found the breaking point.
+- **Which kinds of coding are hard for which models?** Our guess is web work is easy, backend and security work (vulnerability finding, pen-testing) are harder, and signal-processing or RF code harder still. Untested.
+- **Does a stronger model rescue a stuck task?** The escalation path exists but has never fired live.
+- **How much does restarting a long session really save?** Cache reads are about a fifth of the bill in our logs. We haven't measured the saving from a clean restart.
 
-## What It Catches in Real Codebases
+## What's next
 
-| Scenario | Plain Claude Code | With God Mode |
-|---|---|---|
-| **Cross-cutting feature with unwired APIs** | LLM implements payment logic, runs unit tests, and claims `OK, done`. It misses that webhooks are unwired, audit logs evaluate timestamps once at module import time, and replayed payments don't validate matching amounts. | **`reviewer`** subagent diffs against the base branch and **catches 5 bugs** (including security bypasses and dead code) before merging. |
-| **Noisy 1,500-line pytest dump in a 40-file repo** | Dumps 1,500 lines of tracebacks directly into chat context, consuming 15k tokens and triggering conversational lag. | **`filter-output.sh`** trims output to just the failing tail and exit code; logs full traces to `.godmode/test-log.md`. |
-| **Long sessions & repeated compactions** | Compaction creates lossy conversational summaries. Details blur, exact outputs vanish, and Claude **re-tries broken approaches that previously failed**. | **`session-start.sh` hook** automatically reloads `.godmode/PLAN.md` and `HANDOFF.md`. Resumes the exact step and **actively avoids all recorded dead ends**. |
-| **Exiting a turn without documentation** | Agent finishes turn and stops. Next session has zero record of what was modified or what to do next. | **`check-handoff.sh` Stop hook** requires the agent to update `.godmode/HANDOFF.md` before concluding the turn. |
+1. A **breaking-point map** by domain (web, backend, systems, numerics, security, RF), several runs per cell, with cost.
+2. **Tasks where one tier passes and another fails**, so escalation can be proven or dropped.
+3. **Matched-effort, repeated runs** of the Sonnet-vs-Opus comparison, with variance.
+4. A measured **restart-vs-continue** cost comparison on real sessions.
 
----
+## What's inside
 
-## Architectural Paradigms Compared
+- Hooks (Python and shell, standard library only): model advisor, test-output filter, ledger and verification checks, session log, failure ladder.
+- A requirements-checklist workflow and nine bundled Superpowers guides (MIT licence, credited to Jesse Vincent).
+- Optional extras, not measured to help: Opus planner, solver and reviewer agents, a Haiku executor, a code-graph query tool.
+- Research notes, scripts and score files in `research/`, so you can check every number.
+- Tests: hooks 14 + 35 + 21 + 32 and a 62-check skill selftest, all passing.
 
-| Paradigm | How It Operates | Why God Mode Is Different |
-|---|---|---|
-| **Prompt Compression Tools** | Compresses syntax and prompts into shorthand to save ~10–15% tokens. | **Model-Tier Arbitrage:** God Mode doesn't truncate language; on large tasks it routes mechanical steps to lightweight tiers (Haiku is up to 18x cheaper per token) and keeps orchestrator context compact. |
-| **Static Code Indexers** | Builds an AST knowledge graph to help Claude *find* symbols. | **Full Execution Lifecycle:** Code indexers only search code; God Mode pairs a built-in AST indexer with execution subagents, test log filtering, Stop hooks, and diff auditing. |
-| **Heavyweight Multi-Agent Frameworks** | Installs background Docker containers, external vector databases, and heavy toolchains. | **Zero Dependencies:** Pure shell harnesses, Python standard library, and 5 focused subagents. Installs in seconds with no external daemons. |
-| **Standard Claude Code** | Operates as a single conversation thread that degrades over long tasks. | **Orchestration Harness:** Plans with Opus, delegates execution across isolated subagent tiers, and deterministically persists state across session resets. |
+## Honest status
 
----
-
-## Zero-Dependency AST Graph Indexing (Python · Java · C++)
-
-For large repositories and complex refactoring tasks, God Mode includes a built-in, multi-language AST graph indexer (`scripts/build-graph.py`) that operates with **zero external dependencies and zero LLM token costs**:
-
-- **Languages Supported:** Python (`.py`), Java (`.java`), and C/C++ (`.h`, `.hpp`, `.cpp`, `.cc`).
-- **Sub-Second Build & Incremental Cache:** Indexes a 40+ file project in < 1 second; file-hash caching re-indexes modified files in **~20ms**.
-- **Hub Centrality Analysis:** Identifies high-fan-in "Hub Nodes" (files with the most incoming dependents) to predict blast radius before modifying code.
-- **Atomic File Swapping:** Uses `os.replace` to prevent race conditions during concurrent agent access.
-- **Fail-Safe Fallback:** If a file contains non-standard syntax or dynamic macros, the indexer skips it gracefully without breaking the graph, and subagents automatically fall back to native `ripgrep`.
-
-**Empirical Impact on 41-File Architecture Refactoring (from [benchmarks/event-bus-41/](benchmarks/event-bus-41/)):**
-- Trajectory turns dropped from **19 turns average to 8 turns** (**~58% reduction in turn count**).
-- Wall-clock completion dropped from **126s average to 80s** (**37% faster execution**).
-- 100% of original unit tests and structural decoupling checks passed across all runs.
-
----
-
-## Quick Start
-
-### 1-Command Automated Install (Safe & Non-Destructive)
-
-Merges hooks into `~/.claude/settings.json`, configures `~/.claude/CLAUDE.md`, installs the 5 subagents into `~/.claude/agents/`, and runs self-tests. It never overwrites existing configurations.
-
-**macOS / Linux / Git Bash:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/SanyamKhaiwal/god-mode/main/install/install.sh | bash
-```
-
-**Windows (PowerShell):**
-```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/SanyamKhaiwal/god-mode/main/install/install.ps1 | iex"
-```
-
----
-
-### Manual Setup (4 Steps)
-
-```bash
-# 1. Clone into temporary directory
-git clone https://github.com/SanyamKhaiwal/god-mode.git /tmp/god-mode
-
-# 2. Copy runtime skill files to ~/.claude/skills/god-mode
-mkdir -p ~/.claude/skills/god-mode
-cp -r /tmp/god-mode/SKILL.md /tmp/god-mode/assets /tmp/god-mode/references /tmp/god-mode/scripts ~/.claude/skills/god-mode/
-
-# 3. Copy the 5 subagents to ~/.claude/agents
-mkdir -p ~/.claude/agents
-cp /tmp/god-mode/agents/*.md ~/.claude/agents/
-
-# 4. Clean up temporary clone
-rm -rf /tmp/god-mode
-```
-
-Then register the hooks in `~/.claude/settings.json`:
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ ! -f \"$HOME/.claude/skills/god-mode/scripts/session-start.sh\" ] || bash \"$HOME/.claude/skills/god-mode/scripts/session-start.sh\"",
-            "timeout": 10,
-            "statusMessage": "Loading God Mode handoff"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ ! -f \"$HOME/.claude/skills/god-mode/scripts/check-handoff.sh\" ] || bash \"$HOME/.claude/skills/god-mode/scripts/check-handoff.sh\"",
-            "timeout": 20,
-            "statusMessage": "Checking God Mode handoff"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-And add to `~/.claude/CLAUDE.md`:
-```markdown
-## God Mode (coding workflow)
-For any coding or implementation task (features, bug fixes, refactors, tests, build or config changes), follow the `god-mode` skill. Triage first: simple tasks go Direct with no pipeline. I can say `quick` or `full` to override triage.
-```
-
----
-
-## How to Use
-
-### 1. Automatic Execution (Zero Workflow Friction)
-
-**You don't need to remember to type a trigger prefix.**
-
-Because the installer configures your global `~/.claude/CLAUDE.md`, Claude Code **automatically invokes God Mode for any coding or implementation task** (features, refactors, bug fixes, test suites).
-
-Just prompt Claude Code normally:
-
-```text
-Add a sliding-window rate limiter with burst capability to src/api.py
-```
-
-Claude will automatically triage the task and announce its route in one line:
-> *Route: Light — 3 files, clear spec, tests exist.*
-
-- **Simple 1–2 file edits** automatically stay in the **Direct route** (instant execution in the main session, zero overhead).
-- **Multi-step or risk-area tasks** automatically activate the multi-tier subagent pipeline.
-
-### 2. Optional Overrides
-
-If you ever want to force a specific mode, just include a single keyword in your prompt:
-- **`quick: <task>`** — Forces the **Direct route** (bypasses research, plans, and subagents; executes immediately).
-- **`full: <task>`** — Forces the **Full route** (runs parallel research $\rightarrow$ writes concrete plan $\rightarrow$ pauses for user approval gate $\rightarrow$ executes).
-
----
-
-## Architecture at a Glance
-
-| Subagent | Tier / Role | Model | Write Perms | Output Contract |
-|---|---|:---:|:---:|---|
-| **`researcher`** | Fast lookups | Haiku | ❌ Read-only | Under 40 lines. Lists key locations (`path:line`), load-bearing claims, and unread files. |
-| **`researcher-deep`** | Behavioral tracing | Sonnet | ❌ Read-only | Under 60 lines. Traces call paths, flags **silent limits** (clamps, thresholds, conversions). |
-| **`executor-light`** | T1 Mechanical | Haiku | ️ Yes | Boilerplate, renames, wiring patterns, test cases from spec. Touches only listed files. |
-| **`executor`** | T2 Logic | Sonnet | ️ Yes | Programming with clear specs, edge cases, bug fixes with known cause. 1 retry on fail. |
-| **`reviewer`** | Quality Gate | Sonnet | ❌ Read-only | Diffs against base commit. Prioritizes correctness, broken integrations, and regressions. |
-
-> **Note on Compatibility:** Built natively for Claude Code. The orchestration principles and subagent contracts can also be adapted to other multi-agent developer harnesses.
-
----
-
-## Contributing
-
-We welcome contributions! To report a bug, suggest an enhancement, or submit benchmark comparisons across models and codebases, please read our [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## License
-
-Distributed under the [MIT License](LICENSE). Copyright (c) 2026 Sanyam Khaiwal.
+A research project with working tooling. Single runs are noisy and we say so. If you find a task where the cheap model fails and the expensive one wins, open an issue. That is the result we're looking for.
